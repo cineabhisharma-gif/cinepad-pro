@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#050505">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CinePad Pro">
+  <meta name="description" content="CinePad Pro is a private filmmaker workspace for projects, writing, AI prompts, shot lists, post, grants, meetings, tasks, contacts, backups and optional encrypted cloud sync.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <title>CinePad Pro</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #050505;
+      --bg-soft: #0d0b09;
+      --panel: #171412;
+      --panel-2: #231f1b;
+      --panel-3: #302a24;
+      --border: rgba(255,255,255,.09);
+      --border-strong: rgba(245,158,11,.28);
+      --text: #f8f4ee;
+      --dim: #c5bdb3;
+      --dimmer: #8f8579;
+      --muted: #5f574f;
+      --amber: #f59e0b;
+      --amber-dark: #b45309;
+      --teal: #2dd4bf;
+      --green: #4ade80;
+      --red: #fb7185;
+      --blue: #60a5fa;
+      --purple: #c084fc;
+      --shadow: 0 20px 60px rgba(0,0,0,.35);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); }
+    body {
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      background:
+        radial-gradient(circle at 15% 0%, rgba(245,158,11,.13), transparent 30%),
+        radial-gradient(circle at 85% 8%, rgba(45,212,191,.09), transparent 30%),
+        linear-gradient(180deg, #050505 0%, #0a0807 100%);
+    }
+    button, input, select, textarea { font: inherit; }
+    button { -webkit-tap-highlight-color: transparent; }
+    #root { min-height: 100vh; display: flex; }
+
+    .film-rail {
+      display: none;
+      width: 18px;
+      flex: 0 0 18px;
+      background: #030303;
+      border-right: 1px solid rgba(255,255,255,.04);
+      padding: 14px 0;
+      align-items: center;
+      justify-content: space-between;
+      flex-direction: column;
+    }
+    .film-dot { width: 6px; height: 6px; border-radius: 50%; background: #27211c; }
+
+    .sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: min(310px, 86vw);
+      z-index: 30;
+      transform: translateX(-105%);
+      transition: transform .22s ease;
+      background: rgba(8,7,6,.95);
+      backdrop-filter: blur(18px);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-header {
+      padding: calc(16px + env(safe-area-inset-top)) 18px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .brand-mark { display: flex; align-items: center; gap: 12px; }
+    .brand-logo {
+      width: 42px; height: 42px; border-radius: 14px;
+      background: linear-gradient(135deg, #f59e0b, #8a3e07 55%, #111);
+      display: grid; place-items: center;
+      box-shadow: 0 12px 30px rgba(245,158,11,.13);
+      font-size: 20px;
+    }
+    .brand-eyebrow { margin: 0; font-size: 10px; letter-spacing: .23em; text-transform: uppercase; color: var(--amber); font-weight: 800; }
+    .brand-title { margin: 2px 0 0; font-size: 20px; letter-spacing: .01em; font-weight: 800; }
+    .brand-sub { margin: 2px 0 0; font-size: 11px; color: var(--dimmer); }
+    .sidebar-actions { display: flex; gap: 6px; }
+    .nav { padding: 12px; overflow: auto; flex: 1; display: flex; flex-direction: column; gap: 5px; }
+    .nav-group-label { margin: 12px 10px 4px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .16em; font-weight: 800; }
+    .nav-item {
+      width: 100%; border: 0; background: transparent; color: var(--dim);
+      text-align: left; padding: 10px 12px; border-radius: 12px; display: flex; align-items: center; gap: 10px;
+      cursor: pointer;
+    }
+    .nav-item:hover { background: rgba(255,255,255,.05); color: var(--text); }
+    .nav-item.active { background: linear-gradient(135deg, rgba(245,158,11,.95), rgba(180,83,9,.95)); color: #17110a; font-weight: 800; }
+    .nav-icon { width: 20px; text-align: center; }
+    .nav-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nav-count { font-size: 10px; background: rgba(255,255,255,.08); padding: 2px 7px; border-radius: 999px; }
+    .nav-item.active .nav-count { background: rgba(0,0,0,.14); }
+    .sidebar-footer { border-top: 1px solid var(--border); padding: 12px 18px calc(14px + env(safe-area-inset-bottom)); color: var(--dimmer); font-size: 11px; line-height: 1.4; }
+    .cloud-line { display: flex; align-items: center; gap: 7px; margin-top: 4px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 4px rgba(255,255,255,.03); }
+    .dot.good { background: var(--green); } .dot.warn { background: var(--amber); } .dot.bad { background: var(--red); }
+
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.62); z-index: 20; }
+    .main { flex: 1; min-width: 0; }
+    .topbar {
+      position: sticky; top: 0; z-index: 10;
+      padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+      background: rgba(5,5,5,.78);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .topbar-title { margin: 0; font-size: 14px; font-weight: 800; }
+    .main-inner { max-width: 1180px; margin: 0 auto; padding: 18px 16px 40px; }
+
+    .icon-btn {
+      border: 0; background: transparent; color: var(--dim); cursor: pointer;
+      min-width: 34px; min-height: 34px; padding: 6px; border-radius: 10px; display: inline-grid; place-items: center;
+    }
+    .icon-btn:hover { background: rgba(255,255,255,.06); color: var(--text); }
+    .icon-btn.danger:hover { color: var(--red); }
+    .btn {
+      border: 1px solid transparent; border-radius: 12px; padding: 9px 13px; cursor: pointer;
+      font-size: 13px; font-weight: 800; display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+      color: var(--text); background: var(--panel-2);
+    }
+    .btn:hover { filter: brightness(1.08); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-amber { background: linear-gradient(135deg, var(--amber), var(--amber-dark)); color: #170f06; }
+    .btn-teal { background: linear-gradient(135deg, #14b8a6, #0f766e); color: #eafffb; }
+    .btn-red { background: rgba(251,113,133,.14); border-color: rgba(251,113,133,.28); color: #fecdd3; }
+    .btn-ghost { background: transparent; border-color: var(--border); color: var(--dim); }
+    .btn-small { padding: 6px 9px; font-size: 12px; border-radius: 10px; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .hero {
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 20px;
+      background: linear-gradient(135deg, rgba(245,158,11,.14), rgba(23,20,18,.92) 38%, rgba(45,212,191,.07));
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+      overflow: hidden;
+      position: relative;
+    }
+    .hero:after {
+      content: ""; position: absolute; inset: auto -20% -70% 40%; height: 250px;
+      background: radial-gradient(circle, rgba(245,158,11,.22), transparent 62%);
+      pointer-events: none;
+    }
+    .hero-content { position: relative; z-index: 1; }
+    .kicker { margin: 0 0 8px; color: var(--amber); text-transform: uppercase; letter-spacing: .17em; font-size: 11px; font-weight: 900; }
+    .hero h1 { margin: 0; font-size: clamp(28px, 6vw, 54px); letter-spacing: -.045em; line-height: .96; }
+    .hero p { max-width: 720px; margin: 12px 0 0; color: var(--dim); line-height: 1.55; }
+    .section-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin: 2px 0 16px; }
+    .section-title { margin: 0 0 5px; font-size: clamp(22px, 4vw, 32px); letter-spacing: -.03em; }
+    .section-sub { margin: 0; color: var(--dimmer); font-size: 13px; line-height: 1.5; }
+    .grid { display: grid; gap: 12px; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .grid-3 { grid-template-columns: 1fr; }
+    .grid-4 { grid-template-columns: 1fr; }
+    .card {
+      background: rgba(23,20,18,.88);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.12);
+    }
+    .card-glow { border-color: var(--border-strong); background: linear-gradient(180deg, rgba(35,31,27,.95), rgba(20,17,15,.95)); }
+    .card-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+    .card-title { margin: 0; font-size: 13px; color: var(--amber); text-transform: uppercase; letter-spacing: .12em; font-weight: 900; }
+    .stat { font-size: 30px; font-weight: 900; margin: 0; letter-spacing: -.04em; }
+    .dim { color: var(--dimmer); } .small { font-size: 12px; } .tiny { font-size: 10px; }
+    .teal { color: var(--teal); } .amber { color: var(--amber); } .red { color: var(--red); } .green { color: var(--green); }
+    .row { display: flex; align-items: center; gap: 10px; }
+    .row-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .wrap { flex-wrap: wrap; }
+    .chip-row { display: flex; flex-wrap: wrap; gap: 7px; }
+    .chip { border-radius: 999px; background: rgba(255,255,255,.07); color: var(--dim); padding: 5px 10px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+    .chip.amber-chip { background: rgba(245,158,11,.13); color: #fcd38d; }
+    .chip.teal-chip { background: rgba(45,212,191,.12); color: #a7fff5; }
+    .list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+    .list-item { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+    .list-item:last-child { border-bottom: 0; }
+
+    .input, .select, .textarea {
+      width: 100%; background: #0b0908; color: var(--text); border: 1px solid rgba(255,255,255,.1);
+      border-radius: 12px; padding: 10px 11px; outline: none;
+    }
+    .textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
+    .input:focus, .select:focus, .textarea:focus { border-color: rgba(245,158,11,.65); box-shadow: 0 0 0 4px rgba(245,158,11,.08); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    .field { display: grid; gap: 5px; }
+    .label { font-size: 10px; color: var(--amber); text-transform: uppercase; letter-spacing: .12em; font-weight: 900; }
+    .form-grid { display: grid; gap: 12px; }
+    .form-grid.two { grid-template-columns: 1fr; }
+    .form-card { margin-bottom: 15px; }
+
+    .entry-list { display: grid; gap: 10px; }
+    .entry-card { position: relative; }
+    .entry-title { margin: 0; font-size: 16px; font-weight: 900; letter-spacing: -.01em; overflow-wrap: anywhere; }
+    .entry-snippet { margin: 8px 0 0; color: var(--dim); font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .entry-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .entry-actions { display: flex; gap: 2px; }
+    .empty { border: 1px dashed rgba(255,255,255,.16); border-radius: var(--radius); padding: 36px 16px; text-align: center; color: var(--dimmer); background: rgba(255,255,255,.02); }
+
+    .task-board { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .task-col { border-radius: var(--radius); border: 1px solid var(--border); background: rgba(255,255,255,.025); padding: 10px; min-height: 180px; }
+    .task-col h3 { margin: 0 0 10px; color: var(--amber); font-size: 11px; letter-spacing: .13em; text-transform: uppercase; }
+    .task-card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 10px; margin-bottom: 8px; }
+    .task-card p { margin: 0; }
+    .mini-select { background: #090807; color: var(--dim); border: 1px solid var(--border); border-radius: 9px; padding: 5px 7px; font-size: 12px; }
+
+    .tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; }
+    .tab { white-space: nowrap; border: 1px solid var(--border); background: transparent; color: var(--dim); border-radius: 999px; padding: 8px 12px; cursor: pointer; }
+    .tab.active { background: rgba(245,158,11,.16); border-color: rgba(245,158,11,.35); color: #f8d69b; }
+
+    .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 10px; }
+    .thumb { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 12px; background: #0b0908; border: 1px solid var(--border); }
+    .print-only { display: none; }
+    .mobile-only { display: flex; }
+
+    @media (min-width: 720px) {
+      .grid-2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .grid-3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+      .grid-4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+      .form-grid.two { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .task-board { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+    @media (min-width: 980px) {
+      .film-rail { display: flex; position: sticky; top: 0; height: 100vh; }
+      .sidebar { position: sticky; top: 0; height: 100vh; width: 302px; transform: none; }
+      .overlay, .mobile-only { display: none !important; }
+      .main-inner { padding: 28px 28px 60px; }
+      .task-board { grid-template-columns: repeat(4, minmax(0,1fr)); }
+    }
+    @media print {
+      body { background: white !important; color: #111 !important; }
+      .sidebar, .film-rail, .topbar, .no-print, .icon-btn, .btn, .overlay { display: none !important; }
+      .main-inner { max-width: none; padding: 0; }
+      .card, .hero { box-shadow: none; border: 1px solid #ddd; background: white !important; color: #111 !important; break-inside: avoid; }
+      .dim, .small, .entry-snippet, .section-sub { color: #333 !important; }
+      .print-only { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    const APP_VERSION = "1.0.0";
+    const STORAGE_KEY = "cinepad_pro_workspace_v1";
+    const OLD_STORAGE_KEY = "cinepad_filmmaker_data_v1";
+    const CLIENT_KEY = "cinepad_pro_client_id";
+
+    const TASK_COLUMNS = ["Today", "Next", "Waiting", "Done"];
+    const SYSTEM_KEYS = new Set(["home", "tasks", "calendar", "sections", "sync", "backup"]);
+
+    const FIELD_TEMPLATES = {
+      project: [
+        { name: "title", label: "Project title", type: "text", required: true },
+        { name: "format", label: "Format", type: "select", options: ["Feature Film", "Web Series", "Micro Drama", "Short Film", "Music Video", "Ad Film", "Documentary", "Workshop", "Other"] },
+        { name: "status", label: "Status", type: "select", options: ["Idea", "Research", "Development", "Writing", "Pitching", "Pre-Production", "Production", "Post", "Release", "On Hold"] },
+        { name: "priority", label: "Priority", type: "select", options: ["High", "Medium", "Low"] },
+        { name: "deadline", label: "Next deadline", type: "date" },
+        { name: "notes", label: "Notes", type: "textarea" }
+      ],
+      writing: [
+        { name: "title", label: "Title", type: "text", required: true },
+        { name: "project", label: "Project", type: "text" },
+        { name: "type", label: "Type", type: "select", options: ["Logline", "Scene", "Beat Sheet", "Treatment", "Dialogue", "Character", "Synopsis", "Pitch Note"] },
+        { name: "content", label: "Writing", type: "textarea", mono: true }
+      ],
+      ai: [
+        { name: "title", label: "Prompt title", type: "text", required: true },
+        { name: "project", label: "Project", type: "text" },
+        { name: "tool", label: "Tool / Use", type: "select", options: ["ChatGPT", "Runway", "Kling", "Midjourney", "Suno", "ElevenLabs", "Editing", "Storyboard", "Other"] },
+        { name: "content", label: "Prompt / Result", type: "textarea", mono: true }
+      ],
+      shot: [
+        { name: "title", label: "Shot", type: "text", required: true },
+        { name: "project", label: "Project", type: "text" },
+        { name: "scene", label: "Scene / Episode", type: "text" },
+        { name: "lens", label: "Lens / Ratio", type: "text" },
+        { name: "status", label: "Status", type: "select", options: ["Idea", "Planned", "Shot", "Needs pickup", "Approved"] },
+        { name: "notes", label: "Visual notes", type: "textarea" }
+      ],
+      date: [
+        { name: "title", label: "Title", type: "text", required: true },
+        { name: "date", label: "Date", type: "date", required: true },
+        { name: "type", label: "Type", type: "select", options: ["Submission", "Meeting", "Payment", "Release", "Shoot", "Reminder", "Deadline"] },
+        { name: "project", label: "Project", type: "text" },
+        { name: "notes", label: "Notes", type: "textarea" }
+      ],
+      contact: [
+        { name: "name", label: "Name", type: "text", required: true },
+        { name: "role", label: "Role", type: "text" },
+        { name: "contact", label: "Phone / Email", type: "text" },
+        { name: "project", label: "Project", type: "text" },
+        { name: "notes", label: "Notes", type: "textarea" }
+      ],
+      budget: [
+        { name: "title", label: "Item", type: "text", required: true },
+        { name: "project", label: "Project", type: "text" },
+        { name: "category", label: "Category", type: "select", options: ["Writing", "Pre-Production", "Production", "Post", "Festival", "Marketing", "Travel", "Office", "Other"] },
+        { name: "amount", label: "Amount", type: "number" },
+        { name: "status", label: "Status", type: "select", options: ["Planned", "Quoted", "Paid", "Pending", "Overdue"] },
+        { name: "notes", label: "Notes", type: "textarea" }
+      ],
+      note: [
+        { name: "title", label: "Title", type: "text", required: true },
+        { name: "category", label: "Category", type: "text" },
+        { name: "project", label: "Project", type: "text" },
+        { name: "content", label: "Content", type: "textarea" }
+      ]
+    };
+
+    const DEFAULT_SECTIONS = [
+      { key: "projects", label: "Projects", icon: "🎬", group: "Core", description: "Feature films, web series, shorts, micro dramas, ads and release plans.", fields: FIELD_TEMPLATES.project },
+      { key: "writing", label: "Writing Room", icon: "📝", group: "Creation", description: "Scenes, loglines, treatments, dialogue and character notes.", fields: FIELD_TEMPLATES.writing },
+      { key: "aiLab", label: "AI Film Lab", icon: "✨", group: "Creation", description: "Prompts, AI-shot notes, vertical drama hooks and tool experiments.", fields: FIELD_TEMPLATES.ai },
+      { key: "shotList", label: "Shot List", icon: "🎥", group: "Production", description: "Shots, scenes, lenses, continuity and pickup notes.", fields: FIELD_TEMPLATES.shot },
+      { key: "storyboard", label: "Storyboard", icon: "🖼️", group: "Production", description: "Storyboard frames and image prompts. Add image references in Media Board.", fields: FIELD_TEMPLATES.shot },
+      { key: "editing", label: "Editing / Post", icon: "✂️", group: "Post", description: "Edit notes, sound, subtitles, VFX and exports.", fields: [
+        { name: "title", label: "Title", type: "text", required: true },
+        { name: "project", label: "Project", type: "text" },
+        { name: "category", label: "Category", type: "select", options: ["Edit Note", "Sound", "Subtitles", "VFX", "Color", "Export", "QC"] },
+        { name: "status", label: "Status", type: "select", options: ["To Do", "In Progress", "Waiting", "Done"] },
+        { name: "content", label: "Details", type: "textarea" }
+      ]},
+      { key: "budget", label: "Budget Tracker", icon: "💰", group: "Management", description: "Track planned and paid expenses across projects.", fields: FIELD_TEMPLATES.budget },
+      { key: "castCrew", label: "Cast & Crew", icon: "🎭", group: "Management", description: "Collaborators, actors, crew, festival contacts and producers.", fields: FIELD_TEMPLATES.contact },
+      { key: "grants", label: "Grants / Funds", icon: "🏛️", group: "Management", description: "Labs, grants, submissions, funding status and deadlines.", fields: [
+        { name: "title", label: "Fund / Lab", type: "text", required: true },
+        { name: "deadline", label: "Deadline", type: "date" },
+        { name: "status", label: "Status", type: "select", options: ["Researching", "Drafting", "Submitted", "Rejected", "Shortlisted", "Won"] },
+        { name: "project", label: "Project", type: "text" },
+        { name: "notes", label: "Notes", type: "textarea" }
+      ]},
+      { key: "dates", label: "Dates & Deadlines", icon: "📅", group: "Planning", description: "Submission dates, payments, reminders, release tasks and meetings.", fields: FIELD_TEMPLATES.date },
+      { key: "meetings", label: "Meetings", icon: "👥", group: "Planning", description: "Meetings, agendas, minutes and follow-ups.", fields: [
+        { name: "title", label: "Meeting", type: "text", required: true },
+        { name: "date", label: "Date", type: "date" },
+        { name: "with", label: "With", type: "text" },
+        { name: "agenda", label: "Agenda", type: "textarea" },
+        { name: "followup", label: "Follow-up", type: "textarea" }
+      ]},
+      { key: "voiceNotes", label: "Voice Notes", icon: "🎤", group: "Capture", description: "Record or write quick spoken ideas. Audio can be downloaded from the device.", special: "voice" },
+      { key: "mediaBoard", label: "Media Board", icon: "📸", group: "Capture", description: "Camera references, location pictures, props, costumes and visual research.", special: "media" },
+      { key: "notes", label: "Notes", icon: "🗒️", group: "Capture", description: "Research, marketing, finance, daily discipline and Cine Art Center notes.", fields: FIELD_TEMPLATES.note },
+      { key: "release", label: "Release Planner", icon: "📣", group: "Marketing", description: "Festival strategy, social campaign, screenings, reviews and distribution tasks.", fields: [
+        { name: "title", label: "Action", type: "text", required: true },
+        { name: "project", label: "Project", type: "text" },
+        { name: "channel", label: "Channel", type: "select", options: ["Festival", "PR", "Instagram", "YouTube", "Reddit", "LinkedIn", "Screening", "OTT", "Theatrical", "Other"] },
+        { name: "date", label: "Target date", type: "date" },
+        { name: "notes", label: "Notes", type: "textarea" }
+      ]}
+    ];
+
+    const PRELOAD_PROJECTS = [
+      { title: "Swaha Release", format: "Feature Film", status: "Release", priority: "High", notes: "Festival, screening, marketing, subtitles, reviews and distribution plan." },
+      { title: "Beraham", format: "Feature Film", status: "Writing", priority: "High", notes: "Musical drama. Old Lucknow, love, suffering and empathy." },
+      { title: "Dafaa 302", format: "Feature Film", status: "Development", priority: "Medium", notes: "Keep crime, justice and character notes here." },
+      { title: "Mango Bite", format: "Feature Film", status: "Development", priority: "Medium", notes: "Development file." },
+      { title: "Kankaal", format: "Feature Film", status: "Development", priority: "Medium", notes: "Development file." },
+      { title: "Triya Charitra", format: "Web Series", status: "Pitching", priority: "High", notes: "Pitch deck, bible, episodes, interrogation voice and Kolkata world." },
+      { title: "Matibhram", format: "Web Series", status: "Development", priority: "Medium", notes: "Series development file." },
+      { title: "Babu", format: "Micro Drama", status: "Writing", priority: "High", notes: "AI robot family micro-drama for vertical smartphone format." },
+      { title: "Pattern", format: "Short Film", status: "Development", priority: "Medium", notes: "Short film file." },
+      { title: "Noise", format: "Short Film", status: "Development", priority: "Medium", notes: "Short film file." },
+      { title: "Kaalchakra", format: "Short Film", status: "Development", priority: "Medium", notes: "Short film file." },
+      { title: "Aadim Ratri Ki Mehak", format: "Short Film", status: "Development", priority: "Medium", notes: "Short film file." }
+    ];
+
+    let state = null;
+    let ui = {
+      active: "home",
+      sidebarOpen: false,
+      formOpen: false,
+      editingId: null,
+      draft: {},
+      sectionDraft: {},
+      activeTab: "overview",
+      search: "",
+      importText: "",
+      importStatus: "",
+      syncPassphrase: "",
+      syncStatus: "Local only",
+      syncDot: "warn",
+      syncBusy: false,
+      recording: false,
+      mediaStream: null,
+      mediaRecorder: null,
+      audioChunks: []
+    };
+
+    let firebase = { app: null, auth: null, db: null, unsub: null, modules: null, ready: false };
+    let cloud = { suppressNextPush: false, lastRemoteMillis: 0, pushTimer: null };
+    let listenersBound = false;
+
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+    const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+    const clone = (obj) => JSON.parse(JSON.stringify(obj));
+    const escapeHtml = (value) => String(value ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    const slugify = (text) => String(text || "section").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 36) || "section";
+    const formatDate = (value) => value ? new Date(value + "T00:00:00").toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }) : "";
+    const formatTime = (iso) => iso ? new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "Not saved yet";
+    const getClientId = () => {
+      let id = localStorage.getItem(CLIENT_KEY);
+      if (!id) { id = uid(); localStorage.setItem(CLIENT_KEY, id); }
+      return id;
+    };
+
+    function defaultWorkspace() {
+      const sections = clone(DEFAULT_SECTIONS).map((section, index) => ({ ...section, order: index + 1, visible: true, locked: false }));
+      const entries = {};
+      sections.forEach(section => { if (!section.special) entries[section.key] = []; });
+      entries.projects = PRELOAD_PROJECTS.map(project => ({ id: uid(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), ...project }));
+      return {
+        appVersion: APP_VERSION,
+        createdAt: new Date().toISOString(),
+        lastSaved: null,
+        clientId: getClientId(),
+        settings: {
+          filmmakerName: "Abhilash Sharma",
+          workspaceTitle: "CinePad Pro",
+          autosync: false,
+          firebaseConfig: "",
+          workspaceId: "",
+          rememberPassphrase: false,
+          storedPassphrase: ""
+        },
+        sections,
+        entries,
+        tasks: [
+          { id: uid(), title: "Plan Swaha release tasks", project: "Swaha Release", column: "Today", notes: "", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+          { id: uid(), title: "Develop Babu vertical micro-drama hooks", project: "Babu", column: "Next", notes: "", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+        ],
+        media: [],
+        voiceNotes: [],
+        cloudMeta: { lastPush: "", lastPull: "", lastRemoteMillis: 0 }
+      };
+    }
+
+    function migrateOldWorkspace(oldParsed) {
+      const base = defaultWorkspace();
+      const old = oldParsed?.data || oldParsed;
+      if (!old || typeof old !== "object") return base;
+      const map = {
+        projects: "projects", writing: "writing", ailab: "aiLab", editing: "editing", grants: "grants",
+        dates: "dates", meetings: "meetings", notes: "notes", contacts: "castCrew"
+      };
+      Object.keys(map).forEach(oldKey => {
+        if (Array.isArray(old[oldKey])) {
+          const newKey = map[oldKey];
+          base.entries[newKey] = old[oldKey].map(item => ({ id: item.id || uid(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), ...item }));
+        }
+      });
+      if (Array.isArray(old.tasks)) {
+        base.tasks = old.tasks.map(task => ({ id: task.id || uid(), column: TASK_COLUMNS.includes(task.column) ? task.column : "Today", title: task.title || "Untitled task", project: task.project || "", notes: task.notes || "", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }));
+      }
+      base.lastSaved = oldParsed?.lastSaved || new Date().toISOString();
+      return base;
+    }
+
+    function loadWorkspace() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          state = normalizeWorkspace(JSON.parse(raw));
+          ui.syncPassphrase = state.settings.rememberPassphrase ? state.settings.storedPassphrase || "" : "";
+          return;
+        }
+        const oldRaw = localStorage.getItem(OLD_STORAGE_KEY);
+        if (oldRaw) state = migrateOldWorkspace(JSON.parse(oldRaw));
+        else state = defaultWorkspace();
+      } catch (error) {
+        console.error("Load failed", error);
+        state = defaultWorkspace();
+      }
+      saveWorkspace(false);
+    }
+
+    function normalizeWorkspace(workspace) {
+      const base = defaultWorkspace();
+      const next = { ...base, ...workspace };
+      next.settings = { ...base.settings, ...(workspace.settings || {}) };
+      next.sections = Array.isArray(workspace.sections) && workspace.sections.length ? workspace.sections : base.sections;
+      next.entries = { ...base.entries, ...(workspace.entries || {}) };
+      next.tasks = Array.isArray(workspace.tasks) ? workspace.tasks : base.tasks;
+      next.media = Array.isArray(workspace.media) ? workspace.media : [];
+      next.voiceNotes = Array.isArray(workspace.voiceNotes) ? workspace.voiceNotes : [];
+      next.cloudMeta = { ...base.cloudMeta, ...(workspace.cloudMeta || {}) };
+      next.sections.forEach(section => {
+        if (!section.special && !Array.isArray(next.entries[section.key])) next.entries[section.key] = [];
+      });
+      return next;
+    }
+
+    function publicPayload() {
+      const safe = clone(state);
+      if (safe.settings) {
+        safe.settings.storedPassphrase = "";
+        safe.settings.rememberPassphrase = false;
+      }
+      return safe;
+    }
+
+    function saveWorkspace(push = true) {
+      state.lastSaved = new Date().toISOString();
+      state.appVersion = APP_VERSION;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (error) {
+        alert("CinePad Pro could not save. Your browser storage may be full. Export a backup, then remove large media items.");
+        console.error(error);
+      }
+      if (push && state.settings.autosync && firebase.ready && !cloud.suppressNextPush) scheduleCloudPush();
+    }
+
+    function visibleSections() {
+      return state.sections.filter(s => s.visible !== false).sort((a, b) => (a.order || 99) - (b.order || 99));
+    }
+    function getSection(key) { return state.sections.find(s => s.key === key); }
+    function entriesFor(key) { return state.entries[key] || []; }
+    function firstTitleField(section) { return section.fields?.find(f => f.required)?.name || section.fields?.[0]?.name || "title"; }
+    function dateField(section) { return section.fields?.find(f => f.type === "date"); }
+    function textField(section) { return section.fields?.find(f => f.type === "textarea"); }
+    function selectFields(section) { return section.fields?.filter(f => f.type === "select") || []; }
+
+    function render() {
+      const root = $("#root");
+      root.innerHTML = `${renderFilmRail()}${renderSidebar()}${ui.sidebarOpen ? '<div class="overlay" data-action="close-sidebar"></div>' : ''}${renderMain()}`;
+      if (!listenersBound) {
+        bindEvents();
+        listenersBound = true;
+      }
+    }
+
+    function renderFilmRail() {
+      return `<div class="film-rail" aria-hidden="true">${Array.from({ length: 16 }, () => '<span class="film-dot"></span>').join("")}</div>`;
+    }
+
+    function renderSidebar() {
+      const groups = new Map();
+      visibleSections().forEach(section => {
+        const group = section.group || "Workspace";
+        if (!groups.has(group)) groups.set(group, []);
+        groups.get(group).push(section);
+      });
+      const navBlocks = Array.from(groups.entries()).map(([group, sections]) => `
+        <div class="nav-group-label">${escapeHtml(group)}</div>
+        ${sections.map(section => renderNavItem(section.key, section.icon, section.label, section.special ? specialCount(section.special) : entriesFor(section.key).length)).join("")}
+      `).join("");
+      const cloudClass = state.settings.autosync ? ui.syncDot : "warn";
+      const cloudText = state.settings.autosync ? ui.syncStatus : "Cloud sync off";
+      return `
+        <aside class="sidebar ${ui.sidebarOpen ? "open" : ""}">
+          <div class="sidebar-header">
+            <div class="brand-mark">
+              <div class="brand-logo">🎞️</div>
+              <div>
+                <p class="brand-eyebrow">Filmmaker OS</p>
+                <p class="brand-title">${escapeHtml(state.settings.workspaceTitle || "CinePad Pro")}</p>
+                <p class="brand-sub">Private workspace · PWA</p>
+              </div>
+            </div>
+            <button class="icon-btn mobile-only" data-action="close-sidebar" aria-label="Close">✕</button>
+          </div>
+          <nav class="nav">
+            ${renderNavItem("home", "🏠", "Today", "")}
+            ${renderNavItem("tasks", "✅", "Tasks", state.tasks.length)}
+            ${renderNavItem("calendar", "🗓️", "Calendar", collectDates().length)}
+            ${navBlocks}
+            <div class="nav-group-label">Control</div>
+            ${renderNavItem("sections", "🧩", "Edit Sections", state.sections.length)}
+            ${renderNavItem("sync", "☁️", "Sync Setup", "")}
+            ${renderNavItem("backup", "💾", "Backup / Export", "")}
+          </nav>
+          <div class="sidebar-footer">
+            <div>${escapeHtml(formatTime(state.lastSaved))}</div>
+            <div class="cloud-line"><span class="dot ${cloudClass}"></span><span>${escapeHtml(cloudText)}</span></div>
+          </div>
+        </aside>`;
+    }
+
+    function renderNavItem(key, icon, label, count) {
+      const active = ui.active === key ? "active" : "";
+      return `<button class="nav-item ${active}" data-action="nav" data-key="${escapeHtml(key)}">
+        <span class="nav-icon">${icon}</span><span class="nav-label">${escapeHtml(label)}</span>${count !== "" && count !== undefined ? `<span class="nav-count">${escapeHtml(count)}</span>` : ""}
+      </button>`;
+    }
+
+    function specialCount(type) {
+      if (type === "media") return state.media.length;
+      if (type === "voice") return state.voiceNotes.length;
+      return "";
+    }
+
+    function renderMain() {
+      return `<main class="main">
+        <div class="topbar mobile-only">
+          <button class="icon-btn" data-action="open-sidebar" aria-label="Menu">☰</button>
+          <p class="topbar-title">${escapeHtml(titleForActive())}</p>
+          <button class="icon-btn" data-action="print-view" aria-label="Print">↗</button>
+        </div>
+        <div class="main-inner">${renderActive()}</div>
+      </main>`;
+    }
+
+    function titleForActive() {
+      if (ui.active === "home") return "Today";
+      if (ui.active === "tasks") return "Tasks";
+      if (ui.active === "calendar") return "Calendar";
+      if (ui.active === "sections") return "Edit Sections";
+      if (ui.active === "sync") return "Sync Setup";
+      if (ui.active === "backup") return "Backup";
+      return getSection(ui.active)?.label || "CinePad Pro";
+    }
+
+    function renderActive() {
+      if (ui.active === "home") return renderHome();
+      if (ui.active === "tasks") return renderTasks();
+      if (ui.active === "calendar") return renderCalendar();
+      if (ui.active === "sections") return renderSectionsManager();
+      if (ui.active === "sync") return renderSync();
+      if (ui.active === "backup") return renderBackup();
+      const section = getSection(ui.active);
+      if (!section) return renderHome();
+      if (section.special === "media") return renderMediaBoard(section);
+      if (section.special === "voice") return renderVoiceNotes(section);
+      return renderEntrySection(section);
+    }
+
+    function renderHome() {
+      const projectCount = entriesFor("projects").length;
+      const todayTasks = state.tasks.filter(t => t.column === "Today");
+      const upcomingDates = collectDates().filter(item => !item.date || item.date >= todayDate()).slice(0, 7);
+      const highPriority = entriesFor("projects").filter(p => p.priority === "High").slice(0, 6);
+      const recent = recentEntries(8);
+      return `
+        <section class="hero">
+          <div class="hero-content">
+            <p class="kicker">CinePad Pro · Personal filmmaker workspace</p>
+            <h1>Your films, writing, AI notes, post and deadlines in one place.</h1>
+            <p>Use this as your private dashboard for features, series, micro dramas, short films, grants, meetings, budgets, cast/crew, shot lists and daily execution. It works locally first, and can sync across Apple devices after Firebase setup.</p>
+            <div class="btn-row" style="margin-top:16px">
+              <button class="btn btn-amber" data-action="quick-add" data-target="projects">+ New Project</button>
+              <button class="btn btn-teal" data-action="quick-add-task">+ Today Task</button>
+              <button class="btn btn-ghost" data-action="nav" data-key="sync">Set up Sync</button>
+              <button class="btn btn-ghost" data-action="print-view">Export PDF</button>
+            </div>
+          </div>
+        </section>
+        <div class="grid grid-4" style="margin-bottom:14px">
+          ${statCard("Projects", projectCount, "Active development slate", "🎬")}
+          ${statCard("Today", todayTasks.length, "Tasks on the board", "✅")}
+          ${statCard("Dates", collectDates().length, "Deadlines and reminders", "📅")}
+          ${statCard("Media", state.media.length, "Images and references", "📸")}
+        </div>
+        <div class="grid grid-2">
+          <div class="card card-glow">
+            <div class="card-head"><h2 class="card-title">Today’s board</h2><button class="btn btn-small btn-ghost" data-action="nav" data-key="tasks">Open</button></div>
+            ${todayTasks.length ? `<ul class="list">${todayTasks.map(t => `<li class="list-item"><span>${escapeHtml(t.title)}${t.project ? `<br><span class="small teal">${escapeHtml(t.project)}</span>` : ""}</span><span class="chip amber-chip">Today</span></li>`).join("")}</ul>` : `<div class="empty">No task in Today. Add one clear action for the next working session.</div>`}
+          </div>
+          <div class="card">
+            <div class="card-head"><h2 class="card-title">Upcoming dates</h2><button class="btn btn-small btn-ghost" data-action="nav" data-key="calendar">Open</button></div>
+            ${upcomingDates.length ? `<ul class="list">${upcomingDates.map(d => `<li class="list-item"><span>${escapeHtml(d.title)}<br><span class="small dim">${escapeHtml(d.section)}${d.project ? ` · ${escapeHtml(d.project)}` : ""}</span></span><span class="chip teal-chip">${escapeHtml(formatDate(d.date))}</span></li>`).join("")}</ul>` : `<div class="empty">No upcoming dates found.</div>`}
+          </div>
+        </div>
+        <div class="grid grid-2" style="margin-top:12px">
+          <div class="card">
+            <div class="card-head"><h2 class="card-title">High priority projects</h2><button class="btn btn-small btn-ghost" data-action="nav" data-key="projects">Open</button></div>
+            <div class="chip-row">${highPriority.length ? highPriority.map(p => `<button class="chip amber-chip" data-action="open-entry" data-section="projects" data-id="${escapeHtml(p.id)}">${escapeHtml(p.title)}</button>`).join("") : `<span class="dim small">Mark projects as High priority to see them here.</span>`}</div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2 class="card-title">Global search</h2><button class="btn btn-small btn-ghost" data-action="clear-search">Clear</button></div>
+            <input class="input" data-field="global-search" value="${escapeHtml(ui.search)}" placeholder="Search projects, notes, prompts, contacts…">
+            <div style="margin-top:10px">${renderSearchResults()}</div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <div class="card-head"><h2 class="card-title">Recent work</h2><span class="small dim">Across all editable sections</span></div>
+          ${recent.length ? `<ul class="list">${recent.map(item => `<li class="list-item"><span>${escapeHtml(item.title)}<br><span class="small dim">${escapeHtml(item.section)} · ${escapeHtml(formatTime(item.updatedAt || item.createdAt))}</span></span><button class="btn btn-small btn-ghost" data-action="open-entry" data-section="${escapeHtml(item.sectionKey)}" data-id="${escapeHtml(item.id)}">Open</button></li>`).join("")}</ul>` : `<div class="empty">Start adding entries and CinePad will surface your recent work here.</div>`}
+        </div>`;
+    }
+
+    function statCard(label, value, sub, icon) {
+      return `<div class="card"><div class="row-between"><div><p class="card-title">${escapeHtml(label)}</p><p class="stat">${escapeHtml(value)}</p><p class="dim small">${escapeHtml(sub)}</p></div><div style="font-size:28px">${icon}</div></div></div>`;
+    }
+
+    function renderSearchResults() {
+      if (!ui.search.trim()) return `<p class="dim small">Search appears here instantly.</p>`;
+      const q = ui.search.trim().toLowerCase();
+      const results = [];
+      visibleSections().forEach(section => {
+        if (section.special) return;
+        entriesFor(section.key).forEach(entry => {
+          const blob = JSON.stringify(entry).toLowerCase();
+          if (blob.includes(q)) results.push({ section, entry, title: entry[firstTitleField(section)] || "Untitled" });
+        });
+      });
+      if (!results.length) return `<p class="dim small">No matches.</p>`;
+      return `<ul class="list">${results.slice(0, 8).map(r => `<li class="list-item"><span>${escapeHtml(r.title)}<br><span class="small dim">${escapeHtml(r.section.label)}</span></span><button class="btn btn-small btn-ghost" data-action="open-entry" data-section="${escapeHtml(r.section.key)}" data-id="${escapeHtml(r.entry.id)}">Open</button></li>`).join("")}</ul>`;
+    }
+
+    function renderEntrySection(section) {
+      const entries = entriesFor(section.key);
+      return `
+        <div class="section-head">
+          <div><h1 class="section-title">${section.icon || "•"} ${escapeHtml(section.label)}</h1><p class="section-sub">${escapeHtml(section.description || "Add, edit, remove and organise entries.")}</p></div>
+          <div class="btn-row no-print"><button class="btn btn-amber" data-action="new-entry" data-section="${escapeHtml(section.key)}">+ New</button><button class="btn btn-ghost" data-action="print-view">PDF</button></div>
+        </div>
+        ${ui.formOpen && ui.active === section.key ? renderEntryForm(section) : ""}
+        ${entries.length ? `<div class="entry-list">${entries.slice().sort(sortEntries).map(entry => renderEntryCard(section, entry)).join("")}</div>` : `<div class="empty">Nothing here yet. Add your first entry in ${escapeHtml(section.label)}.</div>`}`;
+    }
+
+    function renderEntryForm(section) {
+      const fields = section.fields || FIELD_TEMPLATES.note;
+      return `<div class="card form-card card-glow">
+        <div class="card-head"><h2 class="card-title">${ui.editingId ? "Edit" : "New"} ${escapeHtml(section.label)}</h2></div>
+        <div class="form-grid two">${fields.map(field => renderField(field, ui.draft)).join("")}</div>
+        <div class="btn-row" style="margin-top:12px"><button class="btn btn-amber" data-action="save-entry" data-section="${escapeHtml(section.key)}">✓ Save</button><button class="btn btn-ghost" data-action="cancel-form">Cancel</button></div>
+      </div>`;
+    }
+
+    function renderField(field, draft) {
+      const value = draft[field.name] ?? "";
+      const common = `data-field="${escapeHtml(field.name)}"`;
+      let input = "";
+      if (field.type === "textarea") input = `<textarea class="textarea ${field.mono ? "mono" : ""}" ${common} rows="5">${escapeHtml(value)}</textarea>`;
+      else if (field.type === "select") input = `<select class="select" ${common}><option value="">Select…</option>${(field.options || []).map(opt => `<option value="${escapeHtml(opt)}" ${value === opt ? "selected" : ""}>${escapeHtml(opt)}</option>`).join("")}</select>`;
+      else input = `<input class="input" type="${escapeHtml(field.type || "text")}" ${common} value="${escapeHtml(value)}" ${field.required ? "required" : ""}>`;
+      return `<div class="field ${field.type === "textarea" ? "" : ""}"><label class="label">${escapeHtml(field.label || field.name)}</label>${input}</div>`;
+    }
+
+    function renderEntryCard(section, entry) {
+      if (ui.editingId === entry.id && ui.active === section.key) return renderEntryForm(section);
+      const titleName = firstTitleField(section);
+      const title = entry[titleName] || entry.title || entry.name || "Untitled";
+      const text = textField(section);
+      const date = dateField(section);
+      const badges = [];
+      selectFields(section).slice(0, 2).forEach(f => { if (entry[f.name]) badges.push(`<span class="chip amber-chip">${escapeHtml(entry[f.name])}</span>`); });
+      if (date && entry[date.name]) badges.push(`<span class="chip teal-chip">${escapeHtml(formatDate(entry[date.name]))}</span>`);
+      if (entry.project) badges.push(`<span class="chip">${escapeHtml(entry.project)}</span>`);
+      return `<article class="card entry-card">
+        <div class="row-between" style="align-items:flex-start">
+          <div style="min-width:0;flex:1">
+            <h3 class="entry-title">${escapeHtml(title)}</h3>
+            ${badges.length ? `<div class="entry-meta">${badges.join("")}</div>` : ""}
+            ${text && entry[text.name] ? `<p class="entry-snippet ${text.mono ? "mono" : ""}">${escapeHtml(entry[text.name])}</p>` : ""}
+            ${renderExtraFields(section, entry)}
+          </div>
+          <div class="entry-actions no-print"><button class="icon-btn" data-action="edit-entry" data-section="${escapeHtml(section.key)}" data-id="${escapeHtml(entry.id)}">✎</button><button class="icon-btn danger" data-action="delete-entry" data-section="${escapeHtml(section.key)}" data-id="${escapeHtml(entry.id)}">×</button></div>
+        </div>
+      </article>`;
+    }
+
+    function renderExtraFields(section, entry) {
+      const show = (section.fields || []).filter(f => ![firstTitleField(section), textField(section)?.name, dateField(section)?.name].includes(f.name) && f.type !== "select" && entry[f.name]);
+      if (!show.length) return "";
+      return `<div class="entry-meta">${show.slice(0, 4).map(f => `<span class="chip">${escapeHtml(f.label)}: ${escapeHtml(entry[f.name])}</span>`).join("")}</div>`;
+    }
+
+    function renderTasks() {
+      return `<div class="section-head"><div><h1 class="section-title">✅ Tasks</h1><p class="section-sub">A simple filmmaker Kanban board. Move work from Today to Done.</p></div><div class="btn-row no-print"><button class="btn btn-amber" data-action="new-task">+ New Task</button><button class="btn btn-ghost" data-action="print-view">PDF</button></div></div>
+        ${ui.formOpen && ui.active === "tasks" ? renderTaskForm() : ""}
+        <div class="task-board">${TASK_COLUMNS.map(col => renderTaskColumn(col)).join("")}</div>`;
+    }
+
+    function renderTaskForm() {
+      return `<div class="card form-card card-glow"><h2 class="card-title">${ui.editingId ? "Edit task" : "New task"}</h2>
+        <div class="form-grid two">
+          <div class="field"><label class="label">Task</label><input class="input" data-field="title" value="${escapeHtml(ui.draft.title || "")}"></div>
+          <div class="field"><label class="label">Project</label><input class="input" data-field="project" value="${escapeHtml(ui.draft.project || "")}"></div>
+          <div class="field"><label class="label">Column</label><select class="select" data-field="column">${TASK_COLUMNS.map(c => `<option value="${c}" ${(ui.draft.column || "Today") === c ? "selected" : ""}>${c}</option>`).join("")}</select></div>
+          <div class="field"><label class="label">Notes</label><input class="input" data-field="notes" value="${escapeHtml(ui.draft.notes || "")}"></div>
+        </div>
+        <div class="btn-row" style="margin-top:12px"><button class="btn btn-amber" data-action="save-task">✓ Save</button><button class="btn btn-ghost" data-action="cancel-form">Cancel</button></div>
+      </div>`;
+    }
+
+    function renderTaskColumn(column) {
+      const tasks = state.tasks.filter(t => t.column === column);
+      return `<div class="task-col"><h3>${escapeHtml(column)} · ${tasks.length}</h3>${tasks.length ? tasks.map(t => renderTaskCard(t)).join("") : `<p class="dim small">Empty</p>`}</div>`;
+    }
+
+    function renderTaskCard(task) {
+      if (ui.editingId === task.id && ui.active === "tasks") return renderTaskForm();
+      return `<div class="task-card"><div class="row-between" style="align-items:flex-start"><div><p><strong>${escapeHtml(task.title)}</strong></p>${task.project ? `<p class="small teal">${escapeHtml(task.project)}</p>` : ""}${task.notes ? `<p class="small dim">${escapeHtml(task.notes)}</p>` : ""}</div><div class="entry-actions no-print"><button class="icon-btn" data-action="edit-task" data-id="${escapeHtml(task.id)}">✎</button><button class="icon-btn danger" data-action="delete-task" data-id="${escapeHtml(task.id)}">×</button></div></div><div class="row-between no-print" style="margin-top:8px"><select class="mini-select" data-action="move-task" data-id="${escapeHtml(task.id)}">${TASK_COLUMNS.map(c => `<option value="${c}" ${task.column === c ? "selected" : ""}>${c}</option>`).join("")}</select></div></div>`;
+    }
+
+    function renderCalendar() {
+      const dates = collectDates();
+      return `<div class="section-head"><div><h1 class="section-title">🗓️ Calendar</h1><p class="section-sub">This automatically collects deadlines from projects, grants, dates, meetings and custom sections with date fields.</p></div><div class="btn-row no-print"><button class="btn btn-amber" data-action="quick-add" data-target="dates">+ Add Date</button><button class="btn btn-ghost" data-action="print-view">PDF</button></div></div>
+      ${dates.length ? `<div class="entry-list">${dates.map(d => `<div class="card"><div class="row-between"><div><h3 class="entry-title">${escapeHtml(d.title)}</h3><div class="entry-meta"><span class="chip teal-chip">${escapeHtml(formatDate(d.date))}</span><span class="chip">${escapeHtml(d.section)}</span>${d.project ? `<span class="chip amber-chip">${escapeHtml(d.project)}</span>` : ""}</div>${d.notes ? `<p class="entry-snippet">${escapeHtml(d.notes)}</p>` : ""}</div><button class="btn btn-small btn-ghost no-print" data-action="open-entry" data-section="${escapeHtml(d.sectionKey)}" data-id="${escapeHtml(d.id)}">Open</button></div></div>`).join("")}</div>` : `<div class="empty">No dates yet.</div>`}`;
+    }
+
+    function renderSectionsManager() {
+      const templates = Object.keys(FIELD_TEMPLATES);
+      return `<div class="section-head"><div><h1 class="section-title">🧩 Edit Sections</h1><p class="section-sub">Add, rename, hide or remove any filmmaker workspace section. Existing entries stay editable inside each section.</p></div><button class="btn btn-amber no-print" data-action="new-section">+ New Section</button></div>
+        ${ui.formOpen && ui.active === "sections" ? renderSectionForm(templates) : ""}
+        <div class="entry-list">${state.sections.slice().sort((a,b)=>(a.order||99)-(b.order||99)).map(section => renderSectionCard(section)).join("")}</div>`;
+    }
+
+    function renderSectionForm(templates) {
+      const d = ui.sectionDraft;
+      return `<div class="card form-card card-glow"><h2 class="card-title">${d.key ? "Edit section" : "New section"}</h2>
+        <div class="form-grid two">
+          <div class="field"><label class="label">Section name</label><input class="input" data-section-field="label" value="${escapeHtml(d.label || "")}" placeholder="Example: Sponsorships"></div>
+          <div class="field"><label class="label">Icon</label><input class="input" data-section-field="icon" value="${escapeHtml(d.icon || "📁")}" placeholder="Emoji"></div>
+          <div class="field"><label class="label">Group</label><input class="input" data-section-field="group" value="${escapeHtml(d.group || "Custom")}" placeholder="Creation / Planning / Custom"></div>
+          <div class="field"><label class="label">Template</label><select class="select" data-section-field="template" ${d.key ? "disabled" : ""}>${templates.map(t => `<option value="${t}" ${(d.template || "note") === t ? "selected" : ""}>${escapeHtml(t)}</option>`).join("")}</select></div>
+          <div class="field" style="grid-column:1/-1"><label class="label">Description</label><textarea class="textarea" data-section-field="description">${escapeHtml(d.description || "")}</textarea></div>
+        </div>
+        <div class="btn-row" style="margin-top:12px"><button class="btn btn-amber" data-action="save-section">✓ Save Section</button><button class="btn btn-ghost" data-action="cancel-form">Cancel</button></div>
+      </div>`;
+    }
+
+    function renderSectionCard(section) {
+      const count = section.special === "media" ? state.media.length : section.special === "voice" ? state.voiceNotes.length : entriesFor(section.key).length;
+      return `<div class="card"><div class="row-between wrap"><div><h3 class="entry-title">${section.icon || "📁"} ${escapeHtml(section.label)}</h3><p class="entry-snippet">${escapeHtml(section.description || "")}</p><div class="entry-meta"><span class="chip">${escapeHtml(section.group || "Workspace")}</span><span class="chip amber-chip">${count} items</span><span class="chip ${section.visible === false ? "" : "teal-chip"}">${section.visible === false ? "Hidden" : "Visible"}</span></div></div><div class="btn-row no-print"><button class="btn btn-small btn-ghost" data-action="edit-section" data-key="${escapeHtml(section.key)}">Edit</button><button class="btn btn-small btn-ghost" data-action="toggle-section" data-key="${escapeHtml(section.key)}">${section.visible === false ? "Show" : "Hide"}</button><button class="btn btn-small btn-red" data-action="delete-section" data-key="${escapeHtml(section.key)}">Remove</button></div></div></div>`;
+    }
+
+    function renderSync() {
+      const s = state.settings;
+      return `<div class="section-head"><div><h1 class="section-title">☁️ Sync Setup</h1><p class="section-sub">Host CinePad Pro on GitHub Pages, then connect it to Firebase Firestore for encrypted sync across iPad, MacBook and iPhone.</p></div></div>
+        <div class="grid grid-2">
+          <div class="card card-glow">
+            <h2 class="card-title">Cloud status</h2>
+            <div class="cloud-line" style="margin:12px 0"><span class="dot ${state.settings.autosync ? ui.syncDot : "warn"}"></span><strong>${escapeHtml(state.settings.autosync ? ui.syncStatus : "Local only")}</strong></div>
+            <p class="dim small">Your data saves locally first. Cloud sync is optional. When enabled, workspace data is encrypted in your browser before it is uploaded.</p>
+            <div class="btn-row" style="margin-top:12px"><button class="btn btn-teal" data-action="connect-sync" ${ui.syncBusy ? "disabled" : ""}>Connect / Pull</button><button class="btn btn-amber" data-action="push-sync" ${ui.syncBusy ? "disabled" : ""}>Push Now</button><button class="btn btn-ghost" data-action="disable-sync">Disable Sync</button></div>
+            <p class="dim tiny" style="margin-top:10px">Last push: ${escapeHtml(formatTime(state.cloudMeta.lastPush))}<br>Last pull: ${escapeHtml(formatTime(state.cloudMeta.lastPull))}</p>
+          </div>
+          <div class="card">
+            <h2 class="card-title">Security note</h2>
+            <p class="dim small">Use a strong passphrase and keep your Workspace ID private. Firebase API keys are public by design, but your Firestore rules and passphrase protect your data. Do not store bank passwords or highly sensitive documents here.</p>
+            <button class="btn btn-ghost" data-action="generate-workspace-id" style="margin-top:10px">Generate Workspace ID</button>
+          </div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h2 class="card-title">Firebase details</h2>
+          <div class="form-grid two" style="margin-top:10px">
+            <div class="field" style="grid-column:1/-1"><label class="label">Firebase web config JSON</label><textarea class="textarea mono" data-setting-field="firebaseConfig" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","appId":"..."}'>${escapeHtml(s.firebaseConfig || "")}</textarea></div>
+            <div class="field"><label class="label">Workspace ID</label><input class="input mono" data-setting-field="workspaceId" value="${escapeHtml(s.workspaceId || "")}" placeholder="cinepad-your-secret-id"></div>
+            <div class="field"><label class="label">Sync passphrase</label><input class="input" type="password" data-temp-field="syncPassphrase" value="${escapeHtml(ui.syncPassphrase || "")}" placeholder="Use same passphrase on all devices"></div>
+            <label class="row small"><input type="checkbox" data-setting-check="autosync" ${s.autosync ? "checked" : ""}> Auto sync after every save</label>
+            <label class="row small"><input type="checkbox" data-setting-check="rememberPassphrase" ${s.rememberPassphrase ? "checked" : ""}> Remember passphrase on this device</label>
+          </div>
+          <div class="btn-row" style="margin-top:12px"><button class="btn btn-amber" data-action="save-sync-settings">Save Sync Settings</button></div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h2 class="card-title">Firestore security rules</h2>
+          <p class="dim small">Paste these rules in Firebase Firestore Rules. Your app stores encrypted data under <span class="mono">cinepadPro/{workspaceId}</span>.</p>
+          <textarea class="textarea mono" readonly rows="8">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /cinepadPro/{workspaceId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}</textarea>
+        </div>`;
+    }
+
+    function renderBackup() {
+      const data = JSON.stringify(publicPayload(), null, 2);
+      return `<div class="section-head"><div><h1 class="section-title">💾 Backup / Export</h1><p class="section-sub">Download a full backup, import a previous backup, or print the current view to PDF.</p></div><div class="btn-row no-print"><button class="btn btn-amber" data-action="download-backup">Download JSON</button><button class="btn btn-ghost" data-action="print-view">Print / PDF</button></div></div>
+        <div class="grid grid-2">
+          <div class="card"><h2 class="card-title">Full backup</h2><p class="dim small">This backup contains all local workspace data, except saved sync passphrase.</p><textarea class="textarea mono" readonly rows="12">${escapeHtml(data)}</textarea></div>
+          <div class="card"><h2 class="card-title">Import backup</h2><p class="dim small">Paste a CinePad Pro JSON backup. This replaces all current local data.</p><textarea class="textarea mono" rows="12" data-field="import-text" placeholder="Paste backup JSON here…">${escapeHtml(ui.importText)}</textarea><div class="btn-row" style="margin-top:12px"><button class="btn btn-teal" data-action="run-import">Import & Replace</button></div>${ui.importStatus ? `<p class="dim small">${escapeHtml(ui.importStatus)}</p>` : ""}</div>
+        </div>`;
+    }
+
+    function renderMediaBoard(section) {
+      return `<div class="section-head"><div><h1 class="section-title">${section.icon} ${escapeHtml(section.label)}</h1><p class="section-sub">${escapeHtml(section.description)}</p></div><div class="btn-row no-print"><label class="btn btn-amber">+ Add Image<input type="file" accept="image/*" capture="environment" data-action="capture-media" style="display:none"></label><button class="btn btn-ghost" data-action="print-view">PDF</button></div></div>
+      ${state.media.length ? `<div class="media-grid">${state.media.slice().reverse().map(item => `<div class="card"><img class="thumb" src="${escapeHtml(item.dataUrl)}" alt="${escapeHtml(item.title || "Media")}"><input class="input" data-action="rename-media" data-id="${escapeHtml(item.id)}" value="${escapeHtml(item.title || "Untitled")}" style="margin-top:8px"><p class="dim tiny">${escapeHtml(formatTime(item.createdAt))}</p><button class="btn btn-small btn-red no-print" data-action="delete-media" data-id="${escapeHtml(item.id)}">Remove</button></div>`).join("")}</div>` : `<div class="empty">No media yet. Use Add Image to capture or upload location references, props, costumes or storyboard images.</div>`}`;
+    }
+
+    function renderVoiceNotes(section) {
+      return `<div class="section-head"><div><h1 class="section-title">${section.icon} ${escapeHtml(section.label)}</h1><p class="section-sub">${escapeHtml(section.description)}</p></div><div class="btn-row no-print"><button class="btn ${ui.recording ? "btn-red" : "btn-amber"}" data-action="toggle-recording">${ui.recording ? "Stop Recording" : "Record Voice"}</button><button class="btn btn-teal" data-action="new-voice-note">+ Text Note</button></div></div>
+      ${ui.formOpen && ui.active === "voiceNotes" ? renderVoiceForm() : ""}
+      ${state.voiceNotes.length ? `<div class="entry-list">${state.voiceNotes.slice().reverse().map(note => `<div class="card"><div class="row-between" style="align-items:flex-start"><div><h3 class="entry-title">${escapeHtml(note.title || "Voice note")}</h3><p class="entry-snippet">${escapeHtml(note.content || "")}</p>${note.audioUrl ? `<audio controls src="${escapeHtml(note.audioUrl)}" style="width:100%;margin-top:8px"></audio>` : ""}<p class="dim tiny">${escapeHtml(formatTime(note.createdAt))}</p></div><div class="entry-actions no-print"><button class="icon-btn" data-action="edit-voice" data-id="${escapeHtml(note.id)}">✎</button><button class="icon-btn danger" data-action="delete-voice" data-id="${escapeHtml(note.id)}">×</button></div></div></div>`).join("")}</div>` : `<div class="empty">No voice notes yet. Record a quick idea or write a text note.</div>`}`;
+    }
+
+    function renderVoiceForm() {
+      return `<div class="card form-card card-glow"><h2 class="card-title">${ui.editingId ? "Edit voice note" : "New voice note"}</h2><div class="form-grid"><div class="field"><label class="label">Title</label><input class="input" data-field="title" value="${escapeHtml(ui.draft.title || "")}"></div><div class="field"><label class="label">Note / transcript</label><textarea class="textarea" data-field="content">${escapeHtml(ui.draft.content || "")}</textarea></div></div><div class="btn-row" style="margin-top:12px"><button class="btn btn-amber" data-action="save-voice">✓ Save</button><button class="btn btn-ghost" data-action="cancel-form">Cancel</button></div></div>`;
+    }
+
+    function bindEvents() {
+      const root = $("#root");
+      root.addEventListener("click", handleClick);
+      root.addEventListener("input", handleInput);
+      root.addEventListener("change", handleChange);
+    }
+
+    function handleClick(event) {
+      const el = event.target.closest("[data-action]");
+      if (!el) return;
+      const action = el.dataset.action;
+      if (action === "nav") return navigate(el.dataset.key);
+      if (action === "open-sidebar") { ui.sidebarOpen = true; return render(); }
+      if (action === "close-sidebar") { ui.sidebarOpen = false; return render(); }
+      if (action === "print-view") return window.print();
+      if (action === "quick-add") return openNewEntry(el.dataset.target);
+      if (action === "quick-add-task" || action === "new-task") return openTaskForm();
+      if (action === "new-entry") return openNewEntry(el.dataset.section);
+      if (action === "save-entry") return saveEntry(el.dataset.section);
+      if (action === "edit-entry") return editEntry(el.dataset.section, el.dataset.id);
+      if (action === "open-entry") return openEntry(el.dataset.section, el.dataset.id);
+      if (action === "delete-entry") return deleteEntry(el.dataset.section, el.dataset.id);
+      if (action === "cancel-form") return cancelForm();
+      if (action === "save-task") return saveTask();
+      if (action === "edit-task") return editTask(el.dataset.id);
+      if (action === "delete-task") return deleteTask(el.dataset.id);
+      if (action === "new-section") return openSectionForm();
+      if (action === "edit-section") return editSection(el.dataset.key);
+      if (action === "save-section") return saveSection();
+      if (action === "toggle-section") return toggleSection(el.dataset.key);
+      if (action === "delete-section") return deleteSection(el.dataset.key);
+      if (action === "download-backup") return downloadBackup();
+      if (action === "run-import") return runImport();
+      if (action === "clear-search") { ui.search = ""; return render(); }
+      if (action === "generate-workspace-id") return generateWorkspaceId();
+      if (action === "save-sync-settings") return saveSyncSettings();
+      if (action === "connect-sync") return connectSync();
+      if (action === "push-sync") return pushCloudNow();
+      if (action === "disable-sync") return disableSync();
+      if (action === "toggle-recording") return toggleRecording();
+      if (action === "new-voice-note") return openVoiceForm();
+      if (action === "save-voice") return saveVoice();
+      if (action === "edit-voice") return editVoice(el.dataset.id);
+      if (action === "delete-voice") return deleteVoice(el.dataset.id);
+      if (action === "delete-media") return deleteMedia(el.dataset.id);
+    }
+
+    function handleInput(event) {
+      const field = event.target.dataset.field;
+      if (field === "global-search") { ui.search = event.target.value; return render(); }
+      if (field === "import-text") { ui.importText = event.target.value; return; }
+      if (field) ui.draft[field] = event.target.value;
+      const sf = event.target.dataset.sectionField;
+      if (sf) ui.sectionDraft[sf] = event.target.value;
+      const setting = event.target.dataset.settingField;
+      if (setting) state.settings[setting] = event.target.value;
+      const temp = event.target.dataset.tempField;
+      if (temp === "syncPassphrase") ui.syncPassphrase = event.target.value;
+      if (event.target.dataset.action === "rename-media") renameMedia(event.target.dataset.id, event.target.value);
+    }
+
+    function handleChange(event) {
+      const action = event.target.dataset.action;
+      if (action === "move-task") return moveTask(event.target.dataset.id, event.target.value);
+      if (action === "capture-media") return captureMedia(event.target.files?.[0]);
+      const field = event.target.dataset.field;
+      if (field) ui.draft[field] = event.target.value;
+      const check = event.target.dataset.settingCheck;
+      if (check) state.settings[check] = event.target.checked;
+      const sf = event.target.dataset.sectionField;
+      if (sf) ui.sectionDraft[sf] = event.target.value;
+    }
+
+    function navigate(key) {
+      ui.active = key;
+      ui.sidebarOpen = false;
+      ui.formOpen = false;
+      ui.editingId = null;
+      ui.draft = {};
+      ui.sectionDraft = {};
+      render();
+    }
+    function cancelForm() { ui.formOpen = false; ui.editingId = null; ui.draft = {}; ui.sectionDraft = {}; render(); }
+    function focusFirst() { setTimeout(() => $(".form-card .input, .form-card .textarea, .form-card .select")?.focus(), 0); }
+
+    function openNewEntry(sectionKey) { ui.active = sectionKey; ui.formOpen = true; ui.editingId = null; ui.draft = {}; render(); focusFirst(); }
+    function editEntry(sectionKey, id) { const entry = entriesFor(sectionKey).find(x => x.id === id); if (!entry) return; ui.active = sectionKey; ui.formOpen = false; ui.editingId = id; ui.draft = clone(entry); render(); focusFirst(); }
+    function openEntry(sectionKey, id) { editEntry(sectionKey, id); }
+    function saveEntry(sectionKey) {
+      const section = getSection(sectionKey); if (!section) return;
+      const titleName = firstTitleField(section);
+      if (!String(ui.draft[titleName] || "").trim()) { alert("Please add a title/name before saving."); return; }
+      const now = new Date().toISOString();
+      if (!Array.isArray(state.entries[sectionKey])) state.entries[sectionKey] = [];
+      if (ui.editingId) {
+        state.entries[sectionKey] = state.entries[sectionKey].map(item => item.id === ui.editingId ? { ...item, ...ui.draft, id: item.id, updatedAt: now } : item);
+      } else {
+        state.entries[sectionKey].push({ id: uid(), createdAt: now, updatedAt: now, ...ui.draft });
+      }
+      ui.formOpen = false; ui.editingId = null; ui.draft = {}; saveWorkspace(); render();
+    }
+    function deleteEntry(sectionKey, id) {
+      if (!confirm("Remove this entry?")) return;
+      state.entries[sectionKey] = entriesFor(sectionKey).filter(item => item.id !== id);
+      saveWorkspace(); render();
+    }
+
+    function openTaskForm() { ui.active = "tasks"; ui.formOpen = true; ui.editingId = null; ui.draft = { column: "Today" }; render(); focusFirst(); }
+    function editTask(id) { const task = state.tasks.find(t => t.id === id); if (!task) return; ui.active = "tasks"; ui.formOpen = false; ui.editingId = id; ui.draft = clone(task); render(); focusFirst(); }
+    function saveTask() {
+      const title = String(ui.draft.title || "").trim(); if (!title) return alert("Add a task title.");
+      const now = new Date().toISOString();
+      const next = { title, project: ui.draft.project || "", column: TASK_COLUMNS.includes(ui.draft.column) ? ui.draft.column : "Today", notes: ui.draft.notes || "", updatedAt: now };
+      if (ui.editingId) state.tasks = state.tasks.map(t => t.id === ui.editingId ? { ...t, ...next } : t);
+      else state.tasks.push({ id: uid(), createdAt: now, ...next });
+      ui.formOpen = false; ui.editingId = null; ui.draft = {}; saveWorkspace(); render();
+    }
+    function deleteTask(id) { if (!confirm("Remove this task?")) return; state.tasks = state.tasks.filter(t => t.id !== id); saveWorkspace(); render(); }
+    function moveTask(id, column) { state.tasks = state.tasks.map(t => t.id === id ? { ...t, column, updatedAt: new Date().toISOString() } : t); saveWorkspace(); render(); }
+
+    function openSectionForm() { ui.active = "sections"; ui.formOpen = true; ui.editingId = null; ui.sectionDraft = { label: "", icon: "📁", group: "Custom", template: "note", description: "" }; render(); focusFirst(); }
+    function editSection(key) { const section = getSection(key); if (!section) return; ui.active = "sections"; ui.formOpen = true; ui.editingId = key; ui.sectionDraft = { ...clone(section), template: "note" }; render(); focusFirst(); }
+    function saveSection() {
+      const label = String(ui.sectionDraft.label || "").trim(); if (!label) return alert("Add a section name.");
+      const nowKey = slugify(label);
+      if (ui.editingId) {
+        state.sections = state.sections.map(section => section.key === ui.editingId ? { ...section, label, icon: ui.sectionDraft.icon || "📁", group: ui.sectionDraft.group || "Custom", description: ui.sectionDraft.description || "" } : section);
+      } else {
+        let key = nowKey; let i = 2; while (getSection(key) || SYSTEM_KEYS.has(key)) key = `${nowKey}-${i++}`;
+        const fields = clone(FIELD_TEMPLATES[ui.sectionDraft.template || "note"] || FIELD_TEMPLATES.note);
+        state.sections.push({ key, label, icon: ui.sectionDraft.icon || "📁", group: ui.sectionDraft.group || "Custom", description: ui.sectionDraft.description || "", fields, order: state.sections.length + 1, visible: true, locked: false });
+        state.entries[key] = [];
+      }
+      ui.formOpen = false; ui.editingId = null; ui.sectionDraft = {}; saveWorkspace(); render();
+    }
+    function toggleSection(key) { const section = getSection(key); if (!section) return; section.visible = section.visible === false; saveWorkspace(); render(); }
+    function deleteSection(key) {
+      const section = getSection(key); if (!section) return;
+      if (!confirm(`Remove section “${section.label}”? Its entries will also be removed from this workspace.`)) return;
+      state.sections = state.sections.filter(s => s.key !== key);
+      delete state.entries[key];
+      if (ui.active === key) ui.active = "home";
+      saveWorkspace(); render();
+    }
+
+    function collectDates() {
+      const items = [];
+      state.sections.forEach(section => {
+        if (section.special) return;
+        const df = dateField(section); if (!df) return;
+        entriesFor(section.key).forEach(entry => {
+          if (entry[df.name]) items.push({ id: entry.id, title: entry[firstTitleField(section)] || entry.title || "Untitled", date: entry[df.name], section: section.label, sectionKey: section.key, project: entry.project || "", notes: entry.notes || entry.content || entry.agenda || "" });
+        });
+      });
+      return items.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    }
+    function todayDate() { return new Date().toISOString().slice(0, 10); }
+    function sortEntries(a, b) { return String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")); }
+    function recentEntries(limit) {
+      const results = [];
+      state.sections.forEach(section => {
+        if (section.special) return;
+        entriesFor(section.key).forEach(entry => results.push({ ...entry, title: entry[firstTitleField(section)] || entry.title || entry.name || "Untitled", section: section.label, sectionKey: section.key }));
+      });
+      return results.sort(sortEntries).slice(0, limit);
+    }
+
+    function openVoiceForm() { ui.active = "voiceNotes"; ui.formOpen = true; ui.editingId = null; ui.draft = {}; render(); focusFirst(); }
+    function saveVoice() {
+      const title = ui.draft.title || "Voice note";
+      const now = new Date().toISOString();
+      if (ui.editingId) state.voiceNotes = state.voiceNotes.map(n => n.id === ui.editingId ? { ...n, ...ui.draft, updatedAt: now } : n);
+      else state.voiceNotes.push({ id: uid(), title, content: ui.draft.content || "", createdAt: now, updatedAt: now });
+      ui.formOpen = false; ui.editingId = null; ui.draft = {}; saveWorkspace(); render();
+    }
+    function editVoice(id) { const note = state.voiceNotes.find(n => n.id === id); if (!note) return; ui.active = "voiceNotes"; ui.formOpen = true; ui.editingId = id; ui.draft = clone(note); render(); }
+    function deleteVoice(id) { if (!confirm("Remove this voice note?")) return; state.voiceNotes = state.voiceNotes.filter(n => n.id !== id); saveWorkspace(); render(); }
+
+    async function toggleRecording() {
+      if (ui.recording) return stopRecording();
+      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { alert("Recording is not supported in this browser. You can still add a text voice note."); return; }
+      try {
+        ui.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        ui.audioChunks = [];
+        ui.mediaRecorder = new MediaRecorder(ui.mediaStream);
+        ui.mediaRecorder.ondataavailable = e => { if (e.data.size) ui.audioChunks.push(e.data); };
+        ui.mediaRecorder.onstop = () => {
+          const blob = new Blob(ui.audioChunks, { type: "audio/webm" });
+          const reader = new FileReader();
+          reader.onload = () => {
+            state.voiceNotes.push({ id: uid(), title: "Voice note", content: "", audioUrl: reader.result, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+            ui.mediaStream?.getTracks().forEach(track => track.stop());
+            ui.recording = false; saveWorkspace(); render();
+          };
+          reader.readAsDataURL(blob);
+        };
+        ui.mediaRecorder.start(); ui.recording = true; render();
+      } catch (error) { alert("Microphone permission was not granted."); console.error(error); }
+    }
+    function stopRecording() { if (ui.mediaRecorder && ui.mediaRecorder.state !== "inactive") ui.mediaRecorder.stop(); }
+
+    async function captureMedia(file) {
+      if (!file) return;
+      try {
+        const dataUrl = await compressImage(file, 1000, .72);
+        state.media.push({ id: uid(), title: file.name || "Media", dataUrl, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+        saveWorkspace(); render();
+      } catch (error) { alert("Could not add this image."); console.error(error); }
+    }
+    function compressImage(file, maxSide, quality) {
+      return new Promise((resolve, reject) => {
+        const img = new Image(); const reader = new FileReader();
+        reader.onerror = reject; img.onerror = reject;
+        reader.onload = () => { img.src = reader.result; };
+        img.onload = () => {
+          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+          const canvas = document.createElement("canvas"); canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
+          canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    function renameMedia(id, title) { const item = state.media.find(m => m.id === id); if (item) { item.title = title; item.updatedAt = new Date().toISOString(); saveWorkspace(); } }
+    function deleteMedia(id) { if (!confirm("Remove this media item?")) return; state.media = state.media.filter(m => m.id !== id); saveWorkspace(); render(); }
+
+    function downloadBackup() {
+      const blob = new Blob([JSON.stringify(publicPayload(), null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `cinepad-pro-backup-${todayDate()}.json`;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+    }
+    function runImport() {
+      try {
+        const parsed = normalizeWorkspace(JSON.parse(ui.importText));
+        parsed.settings = { ...state.settings, ...parsed.settings, storedPassphrase: state.settings.storedPassphrase };
+        state = parsed; ui.importText = ""; ui.importStatus = "Imported successfully."; saveWorkspace(); render();
+      } catch (error) { ui.importStatus = "Import failed. Check the JSON file."; render(); }
+    }
+
+    function generateWorkspaceId() {
+      const bytes = new Uint8Array(16); crypto.getRandomValues(bytes);
+      state.settings.workspaceId = "cinepad-" + Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+      saveWorkspace(false); render();
+    }
+    function saveSyncSettings() {
+      state.settings.storedPassphrase = state.settings.rememberPassphrase ? ui.syncPassphrase : "";
+      saveWorkspace(false);
+      ui.syncStatus = "Settings saved"; ui.syncDot = "warn"; render();
+    }
+    function disableSync() {
+      state.settings.autosync = false;
+      if (firebase.unsub) firebase.unsub();
+      firebase.ready = false;
+      ui.syncStatus = "Cloud sync off"; ui.syncDot = "warn";
+      saveWorkspace(false); render();
+    }
+
+    async function ensureFirebase() {
+      if (firebase.modules) return firebase.modules;
+      const [appMod, firestoreMod, authMod] = await Promise.all([
+        import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js"),
+        import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js"),
+        import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js")
+      ]);
+      firebase.modules = { ...appMod, ...firestoreMod, ...authMod };
+      return firebase.modules;
+    }
+    function getFirebaseConfig() {
+      try { return JSON.parse(state.settings.firebaseConfig); }
+      catch { throw new Error("Firebase config is not valid JSON."); }
+    }
+    function validateSyncInputs() {
+      if (!state.settings.firebaseConfig.trim()) throw new Error("Add your Firebase web config JSON.");
+      if (!state.settings.workspaceId.trim()) throw new Error("Add or generate a Workspace ID.");
+      if (!ui.syncPassphrase.trim()) throw new Error("Add your sync passphrase.");
+    }
+
+    async function connectSync() {
+      try {
+        ui.syncBusy = true; ui.syncStatus = "Connecting…"; ui.syncDot = "warn"; render();
+        validateSyncInputs();
+        const m = await ensureFirebase();
+        if (!firebase.app) firebase.app = m.initializeApp(getFirebaseConfig());
+        if (!firebase.auth) firebase.auth = m.getAuth(firebase.app);
+        if (!firebase.db) firebase.db = m.getFirestore(firebase.app);
+        await m.signInAnonymously(firebase.auth);
+        firebase.ready = true;
+        const ref = m.doc(firebase.db, "cinepadPro", state.settings.workspaceId.trim());
+        const snap = await m.getDoc(ref);
+        if (snap.exists() && snap.data().encrypted) {
+          await applyRemoteSnapshot(snap.data());
+        } else {
+          await pushCloudNow(false);
+        }
+        if (firebase.unsub) firebase.unsub();
+        firebase.unsub = m.onSnapshot(ref, async snapshot => {
+          if (snapshot.exists()) await applyRemoteSnapshot(snapshot.data());
+        });
+        state.settings.autosync = true;
+        saveSyncSettings();
+        ui.syncStatus = "Cloud sync connected"; ui.syncDot = "good";
+      } catch (error) {
+        ui.syncStatus = error.message || "Sync failed"; ui.syncDot = "bad"; firebase.ready = false;
+      } finally { ui.syncBusy = false; render(); }
+    }
+
+    async function applyRemoteSnapshot(data) {
+      const remoteMillis = Number(data.updatedAtMillis || 0);
+      if (!remoteMillis || remoteMillis <= (state.cloudMeta.lastRemoteMillis || 0)) return;
+      if (data.clientId === state.clientId) { state.cloudMeta.lastRemoteMillis = remoteMillis; saveWorkspace(false); return; }
+      const remote = await decryptWorkspace(data.encrypted, ui.syncPassphrase, state.settings.workspaceId.trim());
+      cloud.suppressNextPush = true;
+      const keepSettings = clone(state.settings);
+      state = normalizeWorkspace(remote);
+      state.settings = { ...keepSettings, firebaseConfig: keepSettings.firebaseConfig, workspaceId: keepSettings.workspaceId, autosync: keepSettings.autosync, rememberPassphrase: keepSettings.rememberPassphrase, storedPassphrase: keepSettings.storedPassphrase };
+      state.cloudMeta.lastPull = new Date().toISOString();
+      state.cloudMeta.lastRemoteMillis = remoteMillis;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      cloud.lastRemoteMillis = remoteMillis;
+      cloud.suppressNextPush = false;
+      ui.syncStatus = "Pulled latest cloud data"; ui.syncDot = "good";
+      render();
+    }
+
+    function scheduleCloudPush() {
+      clearTimeout(cloud.pushTimer);
+      cloud.pushTimer = setTimeout(() => pushCloudNow(false), 900);
+    }
+
+    async function pushCloudNow(showRender = true) {
+      try {
+        validateSyncInputs();
+        const m = await ensureFirebase();
+        if (!firebase.app) firebase.app = m.initializeApp(getFirebaseConfig());
+        if (!firebase.auth) firebase.auth = m.getAuth(firebase.app);
+        if (!firebase.db) firebase.db = m.getFirestore(firebase.app);
+        await m.signInAnonymously(firebase.auth);
+        firebase.ready = true;
+        ui.syncStatus = "Encrypting and pushing…"; ui.syncDot = "warn"; if (showRender) render();
+        const encrypted = await encryptWorkspace(publicPayload(), ui.syncPassphrase, state.settings.workspaceId.trim());
+        const updatedAtMillis = Date.now();
+        const ref = m.doc(firebase.db, "cinepadPro", state.settings.workspaceId.trim());
+        await m.setDoc(ref, { encrypted, updatedAtMillis, clientId: state.clientId, appVersion: APP_VERSION, serverUpdatedAt: m.serverTimestamp() }, { merge: true });
+        state.cloudMeta.lastPush = new Date().toISOString();
+        state.cloudMeta.lastRemoteMillis = updatedAtMillis;
+        ui.syncStatus = "Pushed to cloud"; ui.syncDot = "good";
+        saveWorkspace(false);
+      } catch (error) { ui.syncStatus = error.message || "Cloud push failed"; ui.syncDot = "bad"; }
+      finally { if (showRender) render(); }
+    }
+
+    async function deriveKey(passphrase, workspaceId) {
+      const enc = new TextEncoder();
+      const material = await crypto.subtle.importKey("raw", enc.encode(passphrase), "PBKDF2", false, ["deriveKey"]);
+      return crypto.subtle.deriveKey({ name: "PBKDF2", salt: enc.encode("cinepad-pro:" + workspaceId), iterations: 150000, hash: "SHA-256" }, material, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+    }
+    function bytesToBase64(bytes) { return btoa(String.fromCharCode(...new Uint8Array(bytes))); }
+    function base64ToBytes(base64) { return Uint8Array.from(atob(base64), c => c.charCodeAt(0)); }
+    async function encryptWorkspace(payload, passphrase, workspaceId) {
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const key = await deriveKey(passphrase, workspaceId);
+      const data = new TextEncoder().encode(JSON.stringify(payload));
+      const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, data);
+      return { iv: bytesToBase64(iv), cipher: bytesToBase64(cipher) };
+    }
+    async function decryptWorkspace(encrypted, passphrase, workspaceId) {
+      const key = await deriveKey(passphrase, workspaceId);
+      const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: base64ToBytes(encrypted.iv) }, key, base64ToBytes(encrypted.cipher));
+      return JSON.parse(new TextDecoder().decode(plain));
+    }
+
+    function registerServiceWorker() {
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(console.warn));
+      }
+    }
+
+    function init() {
+      loadWorkspace();
+      ui.syncPassphrase = state.settings.rememberPassphrase ? state.settings.storedPassphrase || "" : "";
+      render(); registerServiceWorker();
+      if (state.settings.autosync && ui.syncPassphrase) connectSync();
+    }
+
+    init();
+  </script>
+</body>
+</html>
