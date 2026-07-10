@@ -33,3 +33,8 @@ CinePad Pro works locally without sync. To sync across devices:
 8. On another device, open the same GitHub Pages app and enter the same Firebase config, Workspace ID and passphrase.
 
 Your workspace data is encrypted in the browser before upload. Keep the passphrase safe; if you forget it, cloud data cannot be decrypted.
+
+
+## v1.1 Trash / Recently Deleted update
+
+This update adds a Recently Deleted area. Deleted entries, tasks, voice notes, media and sections are moved to Trash first, where they can be restored or deleted forever. To update an existing GitHub Pages install, replace the existing repository files with this package, commit changes, then reopen the app. Existing local/Firebase data is preserved because the storage key is unchanged.

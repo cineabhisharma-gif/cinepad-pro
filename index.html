@@ -262,13 +262,13 @@
 <body>
   <div id="root"></div>
   <script type="module">
-    const APP_VERSION = "1.0.0";
+    const APP_VERSION = "1.1.0";
     const STORAGE_KEY = "cinepad_pro_workspace_v1";
     const OLD_STORAGE_KEY = "cinepad_filmmaker_data_v1";
     const CLIENT_KEY = "cinepad_pro_client_id";
 
     const TASK_COLUMNS = ["Today", "Next", "Waiting", "Done"];
-    const SYSTEM_KEYS = new Set(["home", "tasks", "calendar", "sections", "sync", "backup"]);
+    const SYSTEM_KEYS = new Set(["home", "tasks", "calendar", "sections", "sync", "backup", "trash"]);
 
     const FIELD_TEMPLATES = {
       project: [
@@ -455,6 +455,7 @@
         ],
         media: [],
         voiceNotes: [],
+        trash: [],
         cloudMeta: { lastPush: "", lastPull: "", lastRemoteMillis: 0 }
       };
     }
@@ -507,6 +508,7 @@
       next.tasks = Array.isArray(workspace.tasks) ? workspace.tasks : base.tasks;
       next.media = Array.isArray(workspace.media) ? workspace.media : [];
       next.voiceNotes = Array.isArray(workspace.voiceNotes) ? workspace.voiceNotes : [];
+      next.trash = Array.isArray(workspace.trash) ? workspace.trash : [];
       next.cloudMeta = { ...base.cloudMeta, ...(workspace.cloudMeta || {}) };
       next.sections.forEach(section => {
         if (!section.special && !Array.isArray(next.entries[section.key])) next.entries[section.key] = [];
@@ -592,6 +594,7 @@
             <div class="nav-group-label">Control</div>
             ${renderNavItem("sections", "🧩", "Edit Sections", state.sections.length)}
             ${renderNavItem("sync", "☁️", "Sync Setup", "")}
+            ${renderNavItem("trash", "🗑️", "Recently Deleted", state.trash?.length || 0)}
             ${renderNavItem("backup", "💾", "Backup / Export", "")}
           </nav>
           <div class="sidebar-footer">
@@ -632,6 +635,7 @@
       if (ui.active === "sections") return "Edit Sections";
       if (ui.active === "sync") return "Sync Setup";
       if (ui.active === "backup") return "Backup";
+      if (ui.active === "trash") return "Recently Deleted";
       return getSection(ui.active)?.label || "CinePad Pro";
     }
 
@@ -642,6 +646,7 @@
       if (ui.active === "sections") return renderSectionsManager();
       if (ui.active === "sync") return renderSync();
       if (ui.active === "backup") return renderBackup();
+      if (ui.active === "trash") return renderTrash();
       const section = getSection(ui.active);
       if (!section) return renderHome();
       if (section.special === "media") return renderMediaBoard(section);
@@ -882,6 +887,31 @@ service cloud.firestore {
         </div>`;
     }
 
+    function renderTrash() {
+      const items = Array.isArray(state.trash) ? state.trash.slice().sort((a, b) => String(b.deletedAt || "").localeCompare(String(a.deletedAt || ""))) : [];
+      const cards = items.map(item => {
+        const typeLabel = trashTypeLabel(item);
+        const sub = [typeLabel, item.sourceLabel || item.sourceKey || "", item.deletedAt ? `Deleted ${formatTime(item.deletedAt)}` : ""].filter(Boolean).join(" · ");
+        const preview = trashPreview(item);
+        return `<article class="card entry-card">
+          <div class="row-between" style="align-items:flex-start">
+            <div style="min-width:0;flex:1">
+              <h3 class="entry-title">${escapeHtml(item.title || "Untitled")}</h3>
+              <div class="entry-meta"><span class="chip amber-chip">${escapeHtml(typeLabel)}</span>${item.sourceLabel ? `<span class="chip">${escapeHtml(item.sourceLabel)}</span>` : ""}</div>
+              <p class="entry-snippet">${escapeHtml(preview)}</p>
+              <p class="dim tiny">${escapeHtml(sub)}</p>
+            </div>
+            <div class="btn-row no-print" style="justify-content:flex-end">
+              <button class="btn btn-small btn-teal" data-action="restore-trash" data-id="${escapeHtml(item.id)}">Restore</button>
+              <button class="btn btn-small btn-red" data-action="delete-trash" data-id="${escapeHtml(item.id)}">Delete Forever</button>
+            </div>
+          </div>
+        </article>`;
+      }).join("");
+      return `<div class="section-head"><div><h1 class="section-title">🗑️ Recently Deleted</h1><p class="section-sub">Deleted projects, notes, tasks, media, voice notes and sections come here first. Restore them anytime, or delete forever when you are sure.</p></div><div class="btn-row no-print"><button class="btn btn-red" data-action="empty-trash" ${items.length ? "" : "disabled"}>Empty Trash</button><button class="btn btn-ghost" data-action="download-backup">Backup Now</button></div></div>
+        ${items.length ? `<div class="entry-list">${cards}</div>` : `<div class="empty">Trash is empty. From now on, deleted items will appear here before permanent removal.</div>`}`;
+    }
+
     function renderBackup() {
       const data = JSON.stringify(publicPayload(), null, 2);
       return `<div class="section-head"><div><h1 class="section-title">💾 Backup / Export</h1><p class="section-sub">Download a full backup, import a previous backup, or print the current view to PDF.</p></div><div class="btn-row no-print"><button class="btn btn-amber" data-action="download-backup">Download JSON</button><button class="btn btn-ghost" data-action="print-view">Print / PDF</button></div></div>
@@ -951,6 +981,9 @@ service cloud.firestore {
       if (action === "edit-voice") return editVoice(el.dataset.id);
       if (action === "delete-voice") return deleteVoice(el.dataset.id);
       if (action === "delete-media") return deleteMedia(el.dataset.id);
+      if (action === "restore-trash") return restoreTrashItem(el.dataset.id);
+      if (action === "delete-trash") return deleteTrashForever(el.dataset.id);
+      if (action === "empty-trash") return emptyTrash();
     }
 
     function handleInput(event) {
@@ -991,6 +1024,88 @@ service cloud.firestore {
     function cancelForm() { ui.formOpen = false; ui.editingId = null; ui.draft = {}; ui.sectionDraft = {}; render(); }
     function focusFirst() { setTimeout(() => $(".form-card .input, .form-card .textarea, .form-card .select")?.focus(), 0); }
 
+    function ensureTrash() { if (!Array.isArray(state.trash)) state.trash = []; }
+    function itemTitle(section, item) {
+      if (!item) return "Untitled";
+      if (section) return item[firstTitleField(section)] || item.title || item.name || "Untitled";
+      return item.title || item.name || "Untitled";
+    }
+    function addToTrash(payload) {
+      ensureTrash();
+      const now = new Date().toISOString();
+      state.trash.unshift({ id: uid(), deletedAt: now, appVersion: APP_VERSION, ...payload });
+    }
+    function trashTypeLabel(item) {
+      const map = { entry: "Entry", task: "Task", voice: "Voice Note", media: "Media", section: "Section" };
+      return map[item?.type] || "Item";
+    }
+    function trashPreview(item) {
+      if (!item) return "";
+      if (item.type === "section") return `${(item.entries || []).length} entries were removed with this section.`;
+      const data = item.item || {};
+      return data.notes || data.content || data.agenda || data.followup || data.project || data.contact || data.role || data.title || data.name || "No preview available.";
+    }
+    function restoreTrashItem(id) {
+      ensureTrash();
+      const item = state.trash.find(x => x.id === id);
+      if (!item) return;
+      let restoredKey = item.sourceKey || "trash";
+      if (item.type === "entry") restoreEntryFromTrash(item);
+      else if (item.type === "task") restoreTaskFromTrash(item);
+      else if (item.type === "voice") restoreVoiceFromTrash(item);
+      else if (item.type === "media") restoreMediaFromTrash(item);
+      else if (item.type === "section") restoredKey = restoreSectionFromTrash(item);
+      else return alert("This deleted item cannot be restored.");
+      state.trash = state.trash.filter(x => x.id !== id);
+      saveWorkspace();
+      ui.active = restoredKey;
+      render();
+    }
+    function restoreEntryFromTrash(item) {
+      const section = getSection(item.sourceKey);
+      if (!section) throwMissingSection(item);
+      if (!Array.isArray(state.entries[item.sourceKey])) state.entries[item.sourceKey] = [];
+      state.entries[item.sourceKey].push({ ...clone(item.item), updatedAt: new Date().toISOString() });
+    }
+    function restoreTaskFromTrash(item) { state.tasks.push({ ...clone(item.item), updatedAt: new Date().toISOString() }); }
+    function restoreVoiceFromTrash(item) { state.voiceNotes.push({ ...clone(item.item), updatedAt: new Date().toISOString() }); }
+    function restoreMediaFromTrash(item) { state.media.push({ ...clone(item.item), updatedAt: new Date().toISOString() }); }
+    function restoreSectionFromTrash(item) {
+      let section = clone(item.section);
+      const originalKey = section.key;
+      if (getSection(section.key) || SYSTEM_KEYS.has(section.key)) {
+        const baseKey = slugify(`${section.label || "section"}-restored`);
+        let key = baseKey, i = 2;
+        while (getSection(key) || SYSTEM_KEYS.has(key)) key = `${baseKey}-${i++}`;
+        section.key = key;
+      }
+      state.sections.push({ ...section, visible: true, order: state.sections.length + 1 });
+      state.entries[section.key] = clone(item.entries || []);
+      if (section.key !== originalKey) {
+        state.entries[section.key] = state.entries[section.key].map(entry => ({ ...entry, updatedAt: new Date().toISOString() }));
+      }
+      return section.key;
+    }
+    function throwMissingSection(item) {
+      alert(`The original section “${item.sourceLabel || item.sourceKey}” no longer exists. Restore that section first, or create it again before restoring this item.`);
+      throw new Error("Missing original section");
+    }
+    function deleteTrashForever(id) {
+      ensureTrash();
+      const item = state.trash.find(x => x.id === id);
+      if (!item) return;
+      if (!confirm(`Delete “${item.title || "this item"}” forever? This cannot be undone.`)) return;
+      state.trash = state.trash.filter(x => x.id !== id);
+      saveWorkspace(); render();
+    }
+    function emptyTrash() {
+      ensureTrash();
+      if (!state.trash.length) return;
+      if (!confirm("Empty Recently Deleted forever? This cannot be undone.")) return;
+      state.trash = [];
+      saveWorkspace(); render();
+    }
+
     function openNewEntry(sectionKey) { ui.active = sectionKey; ui.formOpen = true; ui.editingId = null; ui.draft = {}; render(); focusFirst(); }
     function editEntry(sectionKey, id) { const entry = entriesFor(sectionKey).find(x => x.id === id); if (!entry) return; ui.active = sectionKey; ui.formOpen = false; ui.editingId = id; ui.draft = clone(entry); render(); focusFirst(); }
     function openEntry(sectionKey, id) { editEntry(sectionKey, id); }
@@ -1008,7 +1123,11 @@ service cloud.firestore {
       ui.formOpen = false; ui.editingId = null; ui.draft = {}; saveWorkspace(); render();
     }
     function deleteEntry(sectionKey, id) {
-      if (!confirm("Remove this entry?")) return;
+      const section = getSection(sectionKey);
+      const entry = entriesFor(sectionKey).find(item => item.id === id);
+      if (!entry) return;
+      if (!confirm(`Move “${itemTitle(section, entry)}” to Recently Deleted?`)) return;
+      addToTrash({ type: "entry", sourceKey: sectionKey, sourceLabel: section?.label || sectionKey, title: itemTitle(section, entry), item: clone(entry) });
       state.entries[sectionKey] = entriesFor(sectionKey).filter(item => item.id !== id);
       saveWorkspace(); render();
     }
@@ -1023,7 +1142,13 @@ service cloud.firestore {
       else state.tasks.push({ id: uid(), createdAt: now, ...next });
       ui.formOpen = false; ui.editingId = null; ui.draft = {}; saveWorkspace(); render();
     }
-    function deleteTask(id) { if (!confirm("Remove this task?")) return; state.tasks = state.tasks.filter(t => t.id !== id); saveWorkspace(); render(); }
+    function deleteTask(id) {
+      const task = state.tasks.find(t => t.id === id);
+      if (!task) return;
+      if (!confirm(`Move task “${task.title || "Untitled task"}” to Recently Deleted?`)) return;
+      addToTrash({ type: "task", sourceKey: "tasks", sourceLabel: "Tasks", title: task.title || "Untitled task", item: clone(task) });
+      state.tasks = state.tasks.filter(t => t.id !== id); saveWorkspace(); render();
+    }
     function moveTask(id, column) { state.tasks = state.tasks.map(t => t.id === id ? { ...t, column, updatedAt: new Date().toISOString() } : t); saveWorkspace(); render(); }
 
     function openSectionForm() { ui.active = "sections"; ui.formOpen = true; ui.editingId = null; ui.sectionDraft = { label: "", icon: "📁", group: "Custom", template: "note", description: "" }; render(); focusFirst(); }
@@ -1044,7 +1169,8 @@ service cloud.firestore {
     function toggleSection(key) { const section = getSection(key); if (!section) return; section.visible = section.visible === false; saveWorkspace(); render(); }
     function deleteSection(key) {
       const section = getSection(key); if (!section) return;
-      if (!confirm(`Remove section “${section.label}”? Its entries will also be removed from this workspace.`)) return;
+      if (!confirm(`Move section “${section.label}” and its entries to Recently Deleted?`)) return;
+      addToTrash({ type: "section", sourceKey: key, sourceLabel: "Edit Sections", title: section.label || key, section: clone(section), entries: clone(entriesFor(key)) });
       state.sections = state.sections.filter(s => s.key !== key);
       delete state.entries[key];
       if (ui.active === key) ui.active = "home";
@@ -1082,7 +1208,13 @@ service cloud.firestore {
       ui.formOpen = false; ui.editingId = null; ui.draft = {}; saveWorkspace(); render();
     }
     function editVoice(id) { const note = state.voiceNotes.find(n => n.id === id); if (!note) return; ui.active = "voiceNotes"; ui.formOpen = true; ui.editingId = id; ui.draft = clone(note); render(); }
-    function deleteVoice(id) { if (!confirm("Remove this voice note?")) return; state.voiceNotes = state.voiceNotes.filter(n => n.id !== id); saveWorkspace(); render(); }
+    function deleteVoice(id) {
+      const note = state.voiceNotes.find(n => n.id === id);
+      if (!note) return;
+      if (!confirm(`Move voice note “${note.title || "Voice note"}” to Recently Deleted?`)) return;
+      addToTrash({ type: "voice", sourceKey: "voiceNotes", sourceLabel: "Voice Notes", title: note.title || "Voice note", item: clone(note) });
+      state.voiceNotes = state.voiceNotes.filter(n => n.id !== id); saveWorkspace(); render();
+    }
 
     async function toggleRecording() {
       if (ui.recording) return stopRecording();
@@ -1130,7 +1262,13 @@ service cloud.firestore {
       });
     }
     function renameMedia(id, title) { const item = state.media.find(m => m.id === id); if (item) { item.title = title; item.updatedAt = new Date().toISOString(); saveWorkspace(); } }
-    function deleteMedia(id) { if (!confirm("Remove this media item?")) return; state.media = state.media.filter(m => m.id !== id); saveWorkspace(); render(); }
+    function deleteMedia(id) {
+      const media = state.media.find(m => m.id === id);
+      if (!media) return;
+      if (!confirm(`Move media “${media.title || "Media"}” to Recently Deleted?`)) return;
+      addToTrash({ type: "media", sourceKey: "mediaBoard", sourceLabel: "Media Board", title: media.title || "Media", item: clone(media) });
+      state.media = state.media.filter(m => m.id !== id); saveWorkspace(); render();
+    }
 
     function downloadBackup() {
       const blob = new Blob([JSON.stringify(publicPayload(), null, 2)], { type: "application/json" });

@@ -1,4 +1,4 @@
-const CACHE_NAME = "cinepad-pro-v1.0.0";
+const CACHE_NAME = "cinepad-pro-v1.1.0-trash";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -18,6 +18,7 @@ self.addEventListener("activate", event => {
     caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
   );
   self.clients.claim();
+  self.clients.matchAll({ type: "window" }).then(clients => clients.forEach(client => client.postMessage({ type: "CINEPAD_UPDATED" })));
 });
 
 self.addEventListener("fetch", event => {
