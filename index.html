@@ -266,10 +266,11 @@
 <body>
   <div id="root"></div>
   <script type="module">
-    const APP_VERSION = "1.1.0";
+    const APP_VERSION = "1.4.0";
     const STORAGE_KEY = "cinepad_pro_workspace_v1";
     const OLD_STORAGE_KEY = "cinepad_filmmaker_data_v1";
     const CLIENT_KEY = "cinepad_pro_client_id";
+    const SNAPSHOT_KEY = "cinepad_pro_safety_snapshots_v1";
 
     const TASK_COLUMNS = ["Today", "Next", "Waiting", "Done"];
     const SYSTEM_KEYS = new Set(["home", "tasks", "calendar", "sections", "sync", "backup", "trash"]);
@@ -406,6 +407,7 @@
       syncStatus: "Local only",
       syncDot: "warn",
       syncBusy: false,
+      cloudReport: "",
       recording: false,
       mediaStream: null,
       mediaRecorder: null,
@@ -546,6 +548,21 @@
     }
     function getSection(key) { return state.sections.find(s => s.key === key); }
     function entriesFor(key) { return state.entries[key] || []; }
+    function workspaceProjectCount(workspace = state) { return Array.isArray(workspace?.entries?.projects) ? workspace.entries.projects.length : 0; }
+    function workspaceEntryCounts(workspace = state) {
+      const counts = {};
+      Object.keys(workspace?.entries || {}).forEach(key => { counts[key] = Array.isArray(workspace.entries[key]) ? workspace.entries[key].length : 0; });
+      counts.tasks = Array.isArray(workspace?.tasks) ? workspace.tasks.length : 0;
+      counts.media = Array.isArray(workspace?.media) ? workspace.media.length : 0;
+      counts.voiceNotes = Array.isArray(workspace?.voiceNotes) ? workspace.voiceNotes.length : 0;
+      counts.trash = Array.isArray(workspace?.trash) ? workspace.trash.length : 0;
+      return counts;
+    }
+    function safeByteSize(value) { try { return new Blob([JSON.stringify(value)]).size; } catch { return 0; } }
+    function appModeLabel() {
+      const standalone = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
+      return standalone || window.navigator.standalone ? "Installed app / standalone" : "Browser tab";
+    }
     function firstTitleField(section) { return section.fields?.find(f => f.required)?.name || section.fields?.[0]?.name || "title"; }
     function dateField(section) { return section.fields?.find(f => f.type === "date"); }
     function textField(section) { return section.fields?.find(f => f.type === "textarea"); }
@@ -867,19 +884,29 @@
 
     function renderSync() {
       const s = state.settings;
-      return `<div class="section-head"><div><h1 class="section-title">☁️ Sync Setup</h1><p class="section-sub">Host CinePad Pro on GitHub Pages, then connect it to Firebase Firestore for encrypted sync across iPad, MacBook and iPhone.</p></div></div>
+      const localProjects = workspaceProjectCount(state);
+      const localBytes = safeByteSize(publicPayload());
+      return `<div class="section-head"><div><h1 class="section-title">☁️ Sync Setup</h1><p class="section-sub">Robust encrypted Firebase sync for the MacBook app, iPad app and Safari. Use Force Push from the device with the latest work, then Force Pull on the other device.</p></div></div>
         <div class="grid grid-2">
           <div class="card card-glow">
             <h2 class="card-title">Cloud status</h2>
             <div class="cloud-line" style="margin:12px 0"><span class="dot ${state.settings.autosync ? ui.syncDot : "warn"}"></span><strong>${escapeHtml(state.settings.autosync ? ui.syncStatus : "Local only")}</strong></div>
-            <p class="dim small">Your data saves locally first. Cloud sync is optional. When enabled, workspace data is encrypted in your browser before it is uploaded.</p>
-            <div class="btn-row" style="margin-top:12px"><button class="btn btn-teal" data-action="connect-sync" ${ui.syncBusy ? "disabled" : ""}>Connect / Pull</button><button class="btn btn-amber" data-action="push-sync" ${ui.syncBusy ? "disabled" : ""}>Push Now</button><button class="btn btn-ghost" data-action="disable-sync">Disable Sync</button></div>
-            <p class="dim tiny" style="margin-top:10px">Last push: ${escapeHtml(formatTime(state.cloudMeta.lastPush))}<br>Last pull: ${escapeHtml(formatTime(state.cloudMeta.lastPull))}</p>
+            <p class="dim small">Your data saves locally first. Cloud sync is optional. Manual sync is now count-based and force-safe: the app shows how many projects are local and how many were pushed or pulled.</p>
+            <div class="btn-row" style="margin-top:12px">
+              <button class="btn btn-teal" data-action="check-cloud-sync" ${ui.syncBusy ? "disabled" : ""}>Check Cloud</button>
+              <button class="btn btn-amber" data-action="push-sync" ${ui.syncBusy ? "disabled" : ""}>Force Push Local</button>
+              <button class="btn btn-teal" data-action="force-pull-sync" ${ui.syncBusy ? "disabled" : ""}>Force Pull Cloud</button>
+              <button class="btn btn-ghost" data-action="connect-sync" ${ui.syncBusy ? "disabled" : ""}>Connect / Auto</button>
+              <button class="btn btn-ghost" data-action="disable-sync">Disable Sync</button>
+            </div>
+            <p class="dim tiny" style="margin-top:10px">App version: ${escapeHtml(APP_VERSION)}<br>Mode: ${escapeHtml(appModeLabel())}<br>Local projects: ${localProjects}<br>Local backup size: ${(localBytes / 1024).toFixed(1)} KB<br>Last push: ${escapeHtml(formatTime(state.cloudMeta.lastPush))}<br>Last pull: ${escapeHtml(formatTime(state.cloudMeta.lastPull))}<br>Last cloud timestamp: ${escapeHtml(state.cloudMeta.lastRemoteMillis ? new Date(state.cloudMeta.lastRemoteMillis).toLocaleString() : "Never")}</p>
+            ${ui.cloudReport ? `<div class="empty" style="margin-top:10px;text-align:left">${escapeHtml(ui.cloudReport)}</div>` : ""}
           </div>
           <div class="card">
-            <h2 class="card-title">Security note</h2>
-            <p class="dim small">Use a strong passphrase and keep your Workspace ID private. Firebase API keys are public by design, but your Firestore rules and passphrase protect your data. Do not store bank passwords or highly sensitive documents here.</p>
+            <h2 class="card-title">Safe sync rule</h2>
+            <p class="dim small">Work on one device at a time. When finished, press <strong>Force Push Local</strong> on that device. On the other device, press <strong>Force Pull Cloud</strong>. Do not push from the device that is missing the latest project.</p>
             <button class="btn btn-ghost" data-action="generate-workspace-id" style="margin-top:10px">Generate Workspace ID</button>
+            <button class="btn btn-ghost" data-action="download-backup" style="margin-top:10px">Download Local Backup</button>
           </div>
         </div>
         <div class="card" style="margin-top:12px">
@@ -993,6 +1020,8 @@ service cloud.firestore {
       if (action === "generate-workspace-id") return generateWorkspaceId();
       if (action === "save-sync-settings") return saveSyncSettings();
       if (action === "connect-sync") return connectSync();
+      if (action === "force-pull-sync") return forcePullCloud();
+      if (action === "check-cloud-sync") return checkCloudStatus();
       if (action === "push-sync") return pushCloudNow();
       if (action === "disable-sync") return disableSync();
       if (action === "toggle-recording") return toggleRecording();
@@ -1342,51 +1371,91 @@ service cloud.firestore {
       if (!state.settings.workspaceId.trim()) throw new Error("Add or generate a Workspace ID.");
       if (!ui.syncPassphrase.trim()) throw new Error("Add your sync passphrase.");
     }
+    async function firebaseSession() {
+      validateSyncInputs();
+      const m = await ensureFirebase();
+      if (!firebase.app) firebase.app = m.initializeApp(getFirebaseConfig());
+      if (!firebase.auth) firebase.auth = m.getAuth(firebase.app);
+      if (!firebase.db) firebase.db = m.getFirestore(firebase.app);
+      await m.signInAnonymously(firebase.auth);
+      firebase.ready = true;
+      const ref = m.doc(firebase.db, "cinepadPro", state.settings.workspaceId.trim());
+      return { m, ref };
+    }
+    function saveSafetySnapshot(reason = "before-cloud-change") {
+      try {
+        const raw = localStorage.getItem(SNAPSHOT_KEY);
+        const list = raw ? JSON.parse(raw) : [];
+        list.unshift({ id: uid(), reason, createdAt: new Date().toISOString(), appVersion: APP_VERSION, projectCount: workspaceProjectCount(state), state: publicPayload() });
+        localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(list.slice(0, 5)));
+      } catch (error) { console.warn("Could not save safety snapshot", error); }
+    }
 
     async function connectSync() {
       try {
-        ui.syncBusy = true; ui.syncStatus = "Connecting…"; ui.syncDot = "warn"; render();
-        validateSyncInputs();
-        const m = await ensureFirebase();
-        if (!firebase.app) firebase.app = m.initializeApp(getFirebaseConfig());
-        if (!firebase.auth) firebase.auth = m.getAuth(firebase.app);
-        if (!firebase.db) firebase.db = m.getFirestore(firebase.app);
-        await m.signInAnonymously(firebase.auth);
-        firebase.ready = true;
-        const ref = m.doc(firebase.db, "cinepadPro", state.settings.workspaceId.trim());
+        ui.syncBusy = true; ui.syncStatus = "Connecting…"; ui.syncDot = "warn"; ui.cloudReport = ""; render();
+        const { m, ref } = await firebaseSession();
         const snap = await m.getDoc(ref);
         if (snap.exists() && snap.data().encrypted) {
-          await applyRemoteSnapshot(snap.data());
+          await applyRemoteSnapshot(snap.data(), true, "connect");
         } else {
           await pushCloudNow(false);
         }
         if (firebase.unsub) firebase.unsub();
         firebase.unsub = m.onSnapshot(ref, async snapshot => {
-          if (snapshot.exists()) await applyRemoteSnapshot(snapshot.data());
+          if (snapshot.exists()) await applyRemoteSnapshot(snapshot.data(), false, "live update");
         });
         state.settings.autosync = true;
         saveSyncSettings();
-        ui.syncStatus = "Cloud sync connected"; ui.syncDot = "good";
+        ui.syncStatus = "Cloud sync connected · local " + workspaceProjectCount(state) + " projects";
+        ui.syncDot = "good";
       } catch (error) {
         ui.syncStatus = error.message || "Sync failed"; ui.syncDot = "bad"; firebase.ready = false;
       } finally { ui.syncBusy = false; render(); }
     }
 
-    async function applyRemoteSnapshot(data) {
+    async function checkCloudStatus() {
+      try {
+        ui.syncBusy = true; ui.syncStatus = "Checking cloud…"; ui.syncDot = "warn"; ui.cloudReport = ""; render();
+        const { m, ref } = await firebaseSession();
+        const snap = await m.getDoc(ref);
+        if (!snap.exists() || !snap.data().encrypted) {
+          ui.cloudReport = "Cloud check: no workspace found for this Workspace ID. Local has " + workspaceProjectCount(state) + " projects.";
+          ui.syncStatus = "No cloud workspace found"; ui.syncDot = "warn"; return;
+        }
+        const data = snap.data();
+        let report = "Cloud metadata: " + (data.counts?.projects ?? "unknown") + " projects";
+        if (data.appVersion) report += " · app v" + data.appVersion;
+        if (data.updatedAtMillis) report += " · updated " + new Date(Number(data.updatedAtMillis)).toLocaleString();
+        try {
+          const remote = await decryptWorkspace(data.encrypted, ui.syncPassphrase, state.settings.workspaceId.trim());
+          report += "\nDecrypted cloud check: " + workspaceProjectCount(remote) + " projects. Local has " + workspaceProjectCount(state) + " projects.";
+        } catch (e) {
+          report += "\nCould not decrypt cloud data. Check passphrase.";
+        }
+        ui.cloudReport = report;
+        ui.syncStatus = "Cloud checked"; ui.syncDot = "good";
+      } catch (error) { ui.syncStatus = error.message || "Cloud check failed"; ui.syncDot = "bad"; }
+      finally { ui.syncBusy = false; render(); }
+    }
+
+    async function applyRemoteSnapshot(data, force = false, reason = "pull") {
       const remoteMillis = Number(data.updatedAtMillis || 0);
-      if (!remoteMillis || remoteMillis <= (state.cloudMeta.lastRemoteMillis || 0)) return;
-      if (data.clientId === state.clientId) { state.cloudMeta.lastRemoteMillis = remoteMillis; saveWorkspace(false); return; }
+      if (!force && (!remoteMillis || remoteMillis <= (state.cloudMeta.lastRemoteMillis || 0))) return;
+      if (!force && data.clientId === state.clientId) { state.cloudMeta.lastRemoteMillis = remoteMillis; saveWorkspace(false); return; }
       const remote = await decryptWorkspace(data.encrypted, ui.syncPassphrase, state.settings.workspaceId.trim());
+      saveSafetySnapshot("before-" + reason);
       cloud.suppressNextPush = true;
       const keepSettings = clone(state.settings);
       state = normalizeWorkspace(remote);
       state.settings = { ...keepSettings, firebaseConfig: keepSettings.firebaseConfig, workspaceId: keepSettings.workspaceId, autosync: keepSettings.autosync, rememberPassphrase: keepSettings.rememberPassphrase, storedPassphrase: keepSettings.storedPassphrase };
       state.cloudMeta.lastPull = new Date().toISOString();
-      state.cloudMeta.lastRemoteMillis = remoteMillis;
+      state.cloudMeta.lastRemoteMillis = remoteMillis || Date.now();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       cloud.lastRemoteMillis = remoteMillis;
       cloud.suppressNextPush = false;
-      ui.syncStatus = "Pulled latest cloud data"; ui.syncDot = "good";
+      ui.syncStatus = "Pulled cloud data: " + workspaceProjectCount(state) + " projects"; ui.syncDot = "good";
+      ui.cloudReport = "Cloud pull complete. Local now has " + workspaceProjectCount(state) + " projects.";
       render();
     }
 
@@ -1395,23 +1464,43 @@ service cloud.firestore {
       cloud.pushTimer = setTimeout(() => pushCloudNow(false), 900);
     }
 
+    async function forcePullCloud() {
+      try {
+        ui.syncBusy = true; ui.syncStatus = "Force pulling from cloud…"; ui.syncDot = "warn"; ui.cloudReport = ""; render();
+        const { m, ref } = await firebaseSession();
+        const snap = await m.getDoc(ref);
+        if (!snap.exists() || !snap.data().encrypted) throw new Error("No cloud workspace found for this Workspace ID.");
+        await applyRemoteSnapshot(snap.data(), true, "force-pull");
+        state.settings.autosync = true;
+        saveSyncSettings();
+      } catch (error) {
+        ui.syncStatus = error.message || "Force pull failed"; ui.syncDot = "bad";
+      } finally { ui.syncBusy = false; render(); }
+    }
+
     async function pushCloudNow(showRender = true) {
       try {
-        validateSyncInputs();
-        const m = await ensureFirebase();
-        if (!firebase.app) firebase.app = m.initializeApp(getFirebaseConfig());
-        if (!firebase.auth) firebase.auth = m.getAuth(firebase.app);
-        if (!firebase.db) firebase.db = m.getFirestore(firebase.app);
-        await m.signInAnonymously(firebase.auth);
-        firebase.ready = true;
-        ui.syncStatus = "Encrypting and pushing…"; ui.syncDot = "warn"; if (showRender) render();
-        const encrypted = await encryptWorkspace(publicPayload(), ui.syncPassphrase, state.settings.workspaceId.trim());
+        const localCount = workspaceProjectCount(state);
+        if (localCount === 0 && !confirm("This workspace has 0 projects. Push empty local data to cloud?")) return;
+        const { m, ref } = await firebaseSession();
+        ui.syncStatus = "Encrypting and force pushing local data…"; ui.syncDot = "warn"; ui.cloudReport = ""; if (showRender) render();
+        const payload = publicPayload();
+        const encrypted = await encryptWorkspace(payload, ui.syncPassphrase, state.settings.workspaceId.trim());
         const updatedAtMillis = Date.now();
-        const ref = m.doc(firebase.db, "cinepadPro", state.settings.workspaceId.trim());
-        await m.setDoc(ref, { encrypted, updatedAtMillis, clientId: state.clientId, appVersion: APP_VERSION, serverUpdatedAt: m.serverTimestamp() }, { merge: true });
+        const counts = workspaceEntryCounts(payload);
+        await m.setDoc(ref, {
+          encrypted,
+          updatedAtMillis,
+          clientId: state.clientId,
+          appVersion: APP_VERSION,
+          counts,
+          localSavedAt: state.lastSaved || new Date().toISOString(),
+          serverUpdatedAt: m.serverTimestamp()
+        });
         state.cloudMeta.lastPush = new Date().toISOString();
         state.cloudMeta.lastRemoteMillis = updatedAtMillis;
-        ui.syncStatus = "Pushed to cloud"; ui.syncDot = "good";
+        ui.syncStatus = "Pushed to cloud: " + localCount + " projects"; ui.syncDot = "good";
+        ui.cloudReport = "Force push complete. Cloud should now show " + localCount + " projects. On the other device use Force Pull Cloud.";
         saveWorkspace(false);
       } catch (error) { ui.syncStatus = error.message || "Cloud push failed"; ui.syncDot = "bad"; }
       finally { if (showRender) render(); }

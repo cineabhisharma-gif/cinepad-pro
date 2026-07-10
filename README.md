@@ -43,3 +43,13 @@ This update adds a Recently Deleted area. Deleted entries, tasks, voice notes, m
 ## v1.2 Compact Projects Update
 
 Projects now open as a clean title-only list. Tap or click a project card, or the Open button, to edit the full project details. Deleted items still go to Recently Deleted first.
+
+
+## v1.3 Force Sync / Sync Status Update
+
+This update adds Force Pull Cloud, clearer project-count sync messages, and a safer pull path that bypasses stale local sync timestamps when you manually pull from cloud. Use this if one device shows fewer projects after Push/Pull. Existing data and Firebase settings are preserved because the storage key is unchanged.
+
+
+## v1.4 Robust Sync / Sync Doctor Update
+
+This update adds Check Cloud, Force Push Local, Force Pull Cloud, visible app version, local project count, cloud project count, local backup size and automatic safety snapshots before cloud pull. Use Force Push Local from the device that has the latest work, then Force Pull Cloud on the other device. Existing local/Firebase data is preserved because the storage key is unchanged.
