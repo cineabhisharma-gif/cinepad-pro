@@ -38,3 +38,8 @@ Your workspace data is encrypted in the browser before upload. Keep the passphra
 ## v1.1 Trash / Recently Deleted update
 
 This update adds a Recently Deleted area. Deleted entries, tasks, voice notes, media and sections are moved to Trash first, where they can be restored or deleted forever. To update an existing GitHub Pages install, replace the existing repository files with this package, commit changes, then reopen the app. Existing local/Firebase data is preserved because the storage key is unchanged.
+
+
+## v1.2 Compact Projects Update
+
+Projects now open as a clean title-only list. Tap or click a project card, or the Open button, to edit the full project details. Deleted items still go to Recently Deleted first.

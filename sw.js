@@ -1,4 +1,4 @@
-const CACHE_NAME = "cinepad-pro-v1.1.0-trash";
+const CACHE_NAME = "cinepad-pro-v1.2.0-compact-projects";
 const APP_SHELL = [
   "./",
   "./index.html",

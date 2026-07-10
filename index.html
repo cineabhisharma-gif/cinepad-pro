@@ -215,6 +215,10 @@
     .entry-card { position: relative; }
     .entry-title { margin: 0; font-size: 16px; font-weight: 900; letter-spacing: -.01em; overflow-wrap: anywhere; }
     .entry-snippet { margin: 8px 0 0; color: var(--dim); font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .compact-project-card { cursor: pointer; padding: 12px 14px; }
+    .compact-project-card:hover { border-color: rgba(245,158,11,.55); transform: translateY(-1px); }
+    .compact-title { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .compact-meta { margin-top: 6px; }
     .entry-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
     .entry-actions { display: flex; gap: 2px; }
     .empty { border: 1px dashed rgba(255,255,255,.16); border-radius: var(--radius); padding: 36px 16px; text-align: center; color: var(--dimmer); background: rgba(255,255,255,.02); }
@@ -766,6 +770,22 @@
       selectFields(section).slice(0, 2).forEach(f => { if (entry[f.name]) badges.push(`<span class="chip amber-chip">${escapeHtml(entry[f.name])}</span>`); });
       if (date && entry[date.name]) badges.push(`<span class="chip teal-chip">${escapeHtml(formatDate(entry[date.name]))}</span>`);
       if (entry.project) badges.push(`<span class="chip">${escapeHtml(entry.project)}</span>`);
+
+      if (section.key === "projects") {
+        return `<article class="card entry-card compact-project-card" data-action="open-entry" data-section="${escapeHtml(section.key)}" data-id="${escapeHtml(entry.id)}" title="Open project">
+          <div class="row-between" style="align-items:center">
+            <div style="min-width:0;flex:1">
+              <h3 class="entry-title compact-title">${escapeHtml(title)}</h3>
+              ${badges.length ? `<div class="entry-meta compact-meta">${badges.join("")}</div>` : ""}
+            </div>
+            <div class="entry-actions no-print">
+              <button class="btn btn-small btn-ghost" data-action="open-entry" data-section="${escapeHtml(section.key)}" data-id="${escapeHtml(entry.id)}">Open</button>
+              <button class="icon-btn danger" data-action="delete-entry" data-section="${escapeHtml(section.key)}" data-id="${escapeHtml(entry.id)}">×</button>
+            </div>
+          </div>
+        </article>`;
+      }
+
       return `<article class="card entry-card">
         <div class="row-between" style="align-items:flex-start">
           <div style="min-width:0;flex:1">
